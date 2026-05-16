@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import torch
 import ipaddress
+import joblib
 from pathlib import Path
 import os
 import logging
@@ -30,12 +31,14 @@ class LocalPredictionPipeline:
         model_updater: ModelUpdater = None,
     ):
         self.model_updater = model_updater
+        self.model_path = model_path
         self.ddos_count = 0
         self.normal_count = 0
         self.suspicious_count = 0
         self.recent_detections = []
         self.device = self._select_device(force_cpu)
         self.model = self._load_model(model_path)
+        self.scaler = self._load_or_create_scaler(model_path)
         self.processed_dir = Path(processed_dir)
         self.output_dir = Path(output_dir)
         self.flask_app_url = flask_app_url
@@ -78,6 +81,21 @@ class LocalPredictionPipeline:
         except Exception as e:
             logger.error(f"Model loading failed: {e}")
             raise RuntimeError(f"Could not load model: {e}")
+
+    def _load_or_create_scaler(self, model_path: str) -> StandardScaler:
+        scaler_path = Path(model_path).with_suffix(".scaler.pkl")
+        if scaler_path.exists():
+            scaler = joblib.load(str(scaler_path))
+            logger.info(f"Loaded scaler from {scaler_path}")
+            return scaler
+        logger.info(f"No saved scaler found at {scaler_path}, will create new one per batch")
+        return None
+
+    def _save_scaler(self, model_path: str):
+        if self.scaler is not None:
+            scaler_path = Path(model_path).with_suffix(".scaler.pkl")
+            joblib.dump(self.scaler, str(scaler_path))
+            logger.info(f"Saved scaler to {scaler_path}")
 
     def _setup_directories(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -134,9 +152,14 @@ class LocalPredictionPipeline:
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df.fillna(df.mean(), inplace=True)
 
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(df)
-        return X_train, output_df
+        if self.scaler is not None:
+            X_scaled = self.scaler.transform(df)
+        else:
+            self.scaler = StandardScaler()
+            X_scaled = self.scaler.fit_transform(df)
+            self._save_scaler(self.model_path)
+
+        return X_scaled, output_df
 
     def _postprocess_results(
         self, predictions: Dict[str, np.ndarray], original_df: pd.DataFrame

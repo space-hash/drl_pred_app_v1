@@ -226,7 +226,7 @@ class _Flow:
             'Timestamp': datetime.fromtimestamp(self.start_time_ns / 1e9).isoformat(),
             'Flow Duration': flow_duration_us,
             'Total Fwd Packets': len(self.fwd_packets),
-            'Total Backward Packets': len(self.bwd_packets),
+            'Total Bwd Packets': len(self.bwd_packets),
             'Total Length of Fwd Packets': sum(fwd_pkt_lengths),
             'Total Length of Bwd Packets': sum(bwd_pkt_lengths),
             'Fwd Packet Length Max': fwd_len_stats['max'],
@@ -311,7 +311,7 @@ class CICFeatureExtractor:
     """Extracts network flow features from .pcap files, compliant with the disk-based pipeline."""
     FEATURE_NAMES = [
         'Flow ID', 'Src IP', 'Src Port', 'Dst IP', 'Dst Port', 'Protocol', 'Timestamp', 'Flow Duration',
-        'Total Fwd Packets', 'Total Backward Packets', 'Total Length of Fwd Packets', 'Total Length of Bwd Packets',
+        'Total Fwd Packets', 'Total Bwd Packets', 'Total Length of Fwd Packets', 'Total Length of Bwd Packets',
         'Fwd Packet Length Max', 'Fwd Packet Length Min', 'Fwd Packet Length Mean', 'Fwd Packet Length Std',
         'Bwd Packet Length Max', 'Bwd Packet Length Min', 'Bwd Packet Length Mean', 'Bwd Packet Length Std',
         'Flow Bytes/s', 'Flow Packets/s', 'Flow IAT Mean', 'Flow IAT Std', 'Flow IAT Max', 'Flow IAT Min',
