@@ -1,194 +1,216 @@
 # core/mitigation_agent.py
 """
-MitigationAgent - Receives detection events and applies mitigation actions.
+Mitigation Agent with Rate-Based Auto-Block and Dashboard Controls.
 
-This module is designed for future integration. To enable:
-1. Set MITIGATION_ENABLED=true in .env
-2. Set MITIGATION_AUTO_BLOCK=true to enable automatic IP blocking
-3. Implement a mitigation backend (iptables, firewall API, etc.)
-
-Architecture:
-  DetectionPipeline → controller.record_detection() → mitigation_agent.on_detection()
-  mitigation_agent decides action → calls backend (block/rate-limit/alert)
+Features:
+- Rate-based auto-block: Block IPs sending >N packets per minute (default 100)
+- ML-based auto-block: Block IPs after N DDoS detections with high confidence
+- Manual block/unblock from dashboard
+- Whitelist: Never block these IPs
+- Blacklist: Always block these IPs
+- All features toggleable from dashboard
 """
 import threading
 import logging
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Set, List
 from datetime import datetime, timedelta
 from collections import defaultdict
 
 logger = logging.getLogger("MitigationAgent")
 
 
-class MitigationBackend:
-    """Abstract backend for mitigation actions. Override for production use."""
-
-    def block_ip(self, ip: str, reason: str = "") -> bool:
-        logger.info(f"[MOCK] Would block IP {ip}: {reason}")
-        return True
-
-    def unblock_ip(self, ip: str) -> bool:
-        logger.info(f"[MOCK] Would unblock IP {ip}")
-        return True
-
-    def rate_limit(self, ip: str, max_rps: int) -> bool:
-        logger.info(f"[MOCK] Would rate-limit IP {ip} to {max_rps} rps")
-        return True
-
-    def get_blocked_ips(self) -> Dict[str, str]:
-        return {}
-
-
-class IPTablesBackend(MitigationBackend):
-    """Production backend using iptables for IP blocking."""
-
-    def block_ip(self, ip: str, reason: str = "") -> bool:
-        try:
-            import subprocess
-            subprocess.run(
-                ["iptables", "-A", "INPUT", "-s", ip, "-j", "DROP"],
-                check=True, timeout=10
-            )
-            logger.warning(f"Blocked IP {ip} via iptables: {reason}")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to block IP {ip}: {e}")
-            return False
-
-    def unblock_ip(self, ip: str) -> bool:
-        try:
-            import subprocess
-            subprocess.run(
-                ["iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"],
-                check=True, timeout=10
-            )
-            logger.info(f"Unblocked IP {ip} via iptables")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to unblock IP {ip}: {e}")
-            return False
-
-
 class MitigationAgent:
-    """Receives detection events and applies mitigation actions."""
+    """Mitigation agent with rate-based + ML-based blocking."""
 
     def __init__(
         self,
-        auto_mitigate: bool = False,
+        auto_block: bool = False,
+        rate_limit_enabled: bool = True,
+        rate_limit_ppm: int = 100,
+        ml_auto_block: bool = False,
         confidence_threshold: float = 0.8,
-        detection_count_threshold: int = 3,
+        detection_count: int = 3,
         block_duration_minutes: int = 60,
-        backend: Optional[MitigationBackend] = None,
     ):
-        self.auto_mitigate = auto_mitigate
+        self.auto_block = auto_block
+        self.rate_limit_enabled = rate_limit_enabled
+        self.rate_limit_ppm = rate_limit_ppm
+        self.ml_auto_block = ml_auto_block
         self.confidence_threshold = confidence_threshold
-        self.detection_count_threshold = detection_count_threshold
+        self.detection_count = detection_count
         self.block_duration = timedelta(minutes=block_duration_minutes)
-        self.backend = backend or MitigationBackend()
-        self._lock = threading.Lock()
-        self._blocked_ips: Dict[str, datetime] = {}
-        self._detection_counts: Dict[str, list] = defaultdict(list)
-        self._mitigation_log: list = []
-        self._max_log_size = 1000
+
+        self._lock = threading.RLock()
+        self._blocked_ips: Dict[str, Dict[str, Any]] = {}
+        self._whitelist: Set[str] = set()
+        self._blacklist: Set[str] = set()
+        self._detection_counts: Dict[str, int] = {}
+        self._packet_counts: Dict[str, List[datetime]] = defaultdict(list)
+        self._log: List[Dict[str, Any]] = []
 
     def on_detection(self, detection: Dict[str, Any]) -> Optional[str]:
-        """Called by controller.record_detection() for each detection."""
-        status = detection.get("status", "")
-        confidence = detection.get("confidence", 0.0)
+        """Called for each ML detection. Returns blocked IP or None."""
         src_ip = detection.get("src_ip", "unknown")
-        timestamp = datetime.now()
-
-        if status not in ("DDoS", "Suspicious") or src_ip == "unknown":
+        if src_ip == "unknown":
             return None
 
         with self._lock:
+            if src_ip in self._whitelist:
+                return None
             if src_ip in self._blocked_ips:
-                expiry = self._blocked_ips[src_ip]
-                if timestamp < expiry:
-                    return None
-                del self._blocked_ips[src_ip]
+                return None
+            if src_ip in self._blacklist:
+                self._do_block(src_ip, "Blacklisted (ML detection)")
+                return src_ip
 
-            self._detection_counts[src_ip].append(timestamp)
-            recent = [
-                t for t in self._detection_counts[src_ip]
-                if timestamp - t < timedelta(minutes=5)
-            ]
-            self._detection_counts[src_ip] = recent
+            if self.ml_auto_block:
+                status = detection.get("status", "")
+                confidence = detection.get("confidence", 0.0)
+                if status in ("DDoS", "Suspicious"):
+                    self._detection_counts[src_ip] = self._detection_counts.get(src_ip, 0) + 1
+                    if self._detection_counts[src_ip] >= self.detection_count and confidence >= self.confidence_threshold:
+                        self._do_block(src_ip, f"ML auto-block: {status} (conf={confidence:.2f})")
+                        return src_ip
 
-            if (
-                self.auto_mitigate
-                and len(recent) >= self.detection_count_threshold
-                and confidence >= self.confidence_threshold
-            ):
-                self._block_ip(src_ip, timestamp, confidence, status)
+        return None
+
+    def on_packet(self, src_ip: str) -> Optional[str]:
+        """Called for every packet. Returns blocked IP if rate exceeded."""
+        if not self.auto_block or not self.rate_limit_enabled:
+            return None
+        if src_ip == "unknown":
+            return None
+
+        with self._lock:
+            if src_ip in self._whitelist:
+                return None
+            if src_ip in self._blocked_ips:
+                return None
+            if src_ip in self._blacklist:
+                self._do_block(src_ip, "Blacklisted (packet)")
+                return src_ip
+
+            now = datetime.now()
+            cutoff = now - timedelta(minutes=1)
+            self._packet_counts[src_ip] = [t for t in self._packet_counts[src_ip] if t > cutoff]
+            self._packet_counts[src_ip].append(now)
+
+            if len(self._packet_counts[src_ip]) > self.rate_limit_ppm:
+                self._do_block(src_ip, f"Rate limit: {len(self._packet_counts[src_ip])} packets/min (limit={self.rate_limit_ppm})")
+                del self._packet_counts[src_ip]
                 return src_ip
 
         return None
 
-    def _block_ip(self, ip: str, timestamp: datetime, confidence: float, status: str):
-        """Block an IP and invoke the mitigation backend."""
-        expiry = timestamp + self.block_duration
-        self._blocked_ips[ip] = expiry
-
-        reason = f"{status} detected (confidence={confidence:.2f}, count={len(self._detection_counts[ip])})"
-        success = self.backend.block_ip(ip, reason=reason)
-
-        action = {
-            "action": "block" if success else "block_failed",
+    def _do_block(self, ip: str, reason: str):
+        expiry = datetime.now() + self.block_duration
+        self._blocked_ips[ip] = {"expiry": expiry, "reason": reason, "timestamp": datetime.now()}
+        self._log.append({
+            "action": "block",
             "ip": ip,
             "reason": reason,
-            "confidence": confidence,
-            "timestamp": timestamp.isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "expiry": expiry.isoformat(),
-        }
-        self._mitigation_log.append(action)
-        if len(self._mitigation_log) > self._max_log_size:
-            self._mitigation_log = self._mitigation_log[-self._max_log_size // 2:]
+        })
+        logger.warning(f"Blocked {ip}: {reason}")
 
-        if success:
-            logger.warning(f"Blocked IP {ip} until {expiry.isoformat()}")
-        else:
-            logger.error(f"Failed to block IP {ip}")
+    def block_ip(self, ip: str, reason: str = "Manual block") -> bool:
+        with self._lock:
+            self._do_block(ip, reason)
+        return True
 
-    def unblock(self, ip: str) -> bool:
-        """Manually unblock an IP."""
+    def unblock_ip(self, ip: str) -> bool:
         with self._lock:
             if ip in self._blocked_ips:
                 del self._blocked_ips[ip]
-                success = self.backend.unblock_ip(ip)
-                action = {
-                    "action": "unblock" if success else "unblock_failed",
-                    "ip": ip,
-                    "timestamp": datetime.now().isoformat(),
-                }
-                self._mitigation_log.append(action)
-                return success
-            return False
-
-    def is_blocked(self, ip: str) -> bool:
-        """Check if an IP is currently blocked."""
-        with self._lock:
-            expiry = self._blocked_ips.get(ip)
-            if expiry and datetime.now() < expiry:
+                self._log.append({"action": "unblock", "ip": ip, "timestamp": datetime.now().isoformat()})
                 return True
-            if expiry:
-                del self._blocked_ips[ip]
-            return False
+        return False
+
+    def add_whitelist(self, ip: str):
+        with self._lock:
+            self._whitelist.add(ip)
+            self._blocked_ips.pop(ip, None)
+
+    def remove_whitelist(self, ip: str):
+        with self._lock:
+            self._whitelist.discard(ip)
+
+    def add_blacklist(self, ip: str):
+        with self._lock:
+            self._blacklist.add(ip)
+            self._do_block(ip, "Blacklisted")
+
+    def remove_blacklist(self, ip: str):
+        with self._lock:
+            self._blacklist.discard(ip)
+
+    def clear_detection_counts(self):
+        with self._lock:
+            self._detection_counts.clear()
+
+    def get_packet_rates(self) -> Dict[str, int]:
+        now = datetime.now()
+        cutoff = now - timedelta(minutes=1)
+        with self._lock:
+            return {ip: len([t for t in times if t > cutoff]) for ip, times in self._packet_counts.items() if times}
 
     def get_status(self) -> Dict[str, Any]:
-        """Get current mitigation status."""
+        now = datetime.now()
         with self._lock:
-            now = datetime.now()
-            active = {
-                ip: exp.isoformat()
-                for ip, exp in self._blocked_ips.items()
-                if exp > now
-            }
+            active = []
+            expired = []
+            for ip, info in self._blocked_ips.items():
+                if info["expiry"] > now:
+                    remaining = int((info["expiry"] - now).total_seconds() / 60)
+                    active.append({"ip": ip, "reason": info["reason"], "remaining_min": remaining})
+                else:
+                    expired.append(ip)
+            for ip in expired:
+                del self._blocked_ips[ip]
+
+            rates = self.get_packet_rates()
+
             return {
-                "enabled": self.auto_mitigate,
-                "active_blocks": active,
-                "total_blocked": len(active),
-                "recent_actions": self._mitigation_log[-10:],
+                "enabled": self.auto_block or self.rate_limit_enabled or self.ml_auto_block,
+                "auto_block": self.auto_block,
+                "rate_limit_enabled": self.rate_limit_enabled,
+                "rate_limit_ppm": self.rate_limit_ppm,
+                "ml_auto_block": self.ml_auto_block,
                 "confidence_threshold": self.confidence_threshold,
-                "detection_count_threshold": self.detection_count_threshold,
+                "detection_count": self.detection_count,
+                "block_duration_min": int(self.block_duration.total_seconds() / 60),
+                "blocked_ips": active,
+                "total_blocked": len(active),
+                "whitelist": list(self._whitelist),
+                "blacklist": list(self._blacklist),
+                "detection_counts": dict(self._detection_counts),
+                "packet_rates": rates,
+                "log": self._log[-50:],
             }
+
+    def set_auto_block(self, enabled: bool):
+        self.auto_block = enabled
+
+    def set_enabled(self, enabled: bool):
+        self.auto_block = enabled
+        self.rate_limit_enabled = enabled
+        self.ml_auto_block = enabled
+
+    def set_rate_limit_enabled(self, enabled: bool):
+        self.rate_limit_enabled = enabled
+
+    def set_rate_limit_ppm(self, val: int):
+        self.rate_limit_ppm = max(10, val)
+
+    def set_ml_auto_block(self, enabled: bool):
+        self.ml_auto_block = enabled
+
+    def set_confidence(self, val: float):
+        self.confidence_threshold = max(0.0, min(1.0, val))
+
+    def set_detection_count(self, val: int):
+        self.detection_count = max(1, val)
+
+    def set_block_duration(self, val: int):
+        self.block_duration = timedelta(minutes=max(1, val))

@@ -17,7 +17,7 @@ class PacketCapturer:
     Captures network traffic directly to disk and rotates .pcap files.
     This component is fully independent and does not use in-memory queues.
     """
-    def __init__(self):
+    def __init__(self, packet_callback=None):
         self.shutdown_event = threading.Event()
         self.capture_thread = None
         self.packets = []
@@ -26,6 +26,9 @@ class PacketCapturer:
         self.lock = threading.Lock()
         self.interface = self._validate_interface()
         self._write_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="PCAPWriter")
+        self.packet_callback = packet_callback
+        self._packet_count = 0
+        self._blocked_ips = set()
 
     def _validate_interface(self) -> str:
         """
@@ -63,6 +66,22 @@ class PacketCapturer:
             else:
                 self.packets.pop(0)
                 self.packets.append(packet)
+
+        if self.packet_callback:
+            try:
+                src_ip = None
+                if packet.haslayer("IP"):
+                    src_ip = packet["IP"].src
+                elif packet.haslayer("IPv6"):
+                    src_ip = packet["IPv6"].src
+
+                if src_ip and src_ip not in self._blocked_ips:
+                    blocked = self.packet_callback(src_ip)
+                    if blocked:
+                        self._blocked_ips.add(blocked)
+                        logger.warning(f"Rate-blocked {blocked}")
+            except Exception:
+                pass
 
     def _rotation_manager(self):
         """
@@ -120,6 +139,10 @@ class PacketCapturer:
 
         logger.info(f"Starting packet capture on interface '{self.interface}'...")
         self.shutdown_event.clear()
+        self._write_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="PCAPWriter")
+        self.packets = []
+        self._blocked_ips = set()
+        self._packet_count = 0
 
         manager_thread = threading.Thread(target=self._rotation_manager, name="RotationManager")
         manager_thread.daemon = True

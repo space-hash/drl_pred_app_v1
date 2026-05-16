@@ -1,4 +1,9 @@
-from threading import Thread, Event, Lock
+# core/controller.py
+"""
+Pipeline controller - orchestrates the full DDoS detection pipeline.
+Manages lifecycle of capture, feature extraction, prediction, and mitigation.
+"""
+from threading import Thread, Event, RLock
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
@@ -14,10 +19,12 @@ config.setup_directories()
 class PipelineController:
     def __init__(self):
         self.pipeline_active = Event()
-        self.pipeline_threads = []
+        self.lock = RLock()
+
         self.pipeline: Optional[DDoSPipeline] = None
         self.detect: Optional[LocalPredictionPipeline] = None
-        self.lock = Lock()
+        self.model_updater: Optional[ModelUpdater] = None
+        self.mitigation_agent = None
 
         self.ddos_count = 0
         self.normal_count = 0
@@ -26,39 +33,38 @@ class PipelineController:
         self.start_time: Optional[datetime] = None
         self.model_path = str(config.MODEL_PATH)
 
-        self.model_updater = ModelUpdater(
-            model_api_url=config.MODEL_API_URL,
-            current_model_path=self.model_path,
-            update_interval_hours=config.MODEL_UPDATE_INTERVAL_HOURS,
-        )
-
-        self.mitigation_agent = None
         if config.MITIGATION_ENABLED:
-            from core.mitigation_agent import MitigationAgent, IPTablesBackend
-            backend = IPTablesBackend() if config.MITIGATION_AUTO_BLOCK else None
+            from core.mitigation_agent import MitigationAgent
             self.mitigation_agent = MitigationAgent(
-                auto_mitigate=config.MITIGATION_AUTO_BLOCK,
+                auto_block=config.MITIGATION_AUTO_BLOCK,
+                rate_limit_enabled=config.MITIGATION_RATE_LIMIT_ENABLED,
+                rate_limit_ppm=config.MITIGATION_RATE_LIMIT_PPM,
+                ml_auto_block=config.MITIGATION_ML_AUTO_BLOCK,
                 confidence_threshold=config.MITIGATION_CONFIDENCE_THRESHOLD,
-                detection_count_threshold=config.MITIGATION_DETECTION_COUNT,
+                detection_count=config.MITIGATION_DETECTION_COUNT,
                 block_duration_minutes=config.MITIGATION_BLOCK_DURATION_MINUTES,
-                backend=backend,
             )
-            logger.info("Mitigation agent initialized")
+            logger.info("Mitigation agent initialized (auto_block=%s, rate_limit=%s ppm=%s)",
+                       config.MITIGATION_AUTO_BLOCK, config.MITIGATION_RATE_LIMIT_ENABLED, config.MITIGATION_RATE_LIMIT_PPM)
 
     def initialize_components(self) -> None:
         with self.lock:
-            if self.pipeline is None or self.detect is None:
-                self.pipeline = DDoSPipeline()
-                self.detect = LocalPredictionPipeline(
-                    model_path=self.model_path,
-                    processed_dir=str(config.PROCESSED_FEATURES_DIR),
-                    output_dir=str(config.PREDICTION_OUTPUT_DIR),
-                    queue_maxsize=config.QUEUE_MAXSIZE,
-                    force_cpu=config.FORCE_CPU,
-                    model_updater=self.model_updater,
-                    detection_callback=self.record_detection,
-                )
-                self._reset_counters()
+            self.model_updater = ModelUpdater(
+                model_api_url=config.MODEL_API_URL,
+                current_model_path=self.model_path,
+                update_interval_hours=config.MODEL_UPDATE_INTERVAL_HOURS,
+            )
+            self.pipeline = DDoSPipeline(mitigation_agent=self.mitigation_agent)
+            self.detect = LocalPredictionPipeline(
+                model_path=self.model_path,
+                processed_dir=str(config.PROCESSED_FEATURES_DIR),
+                output_dir=str(config.PREDICTION_OUTPUT_DIR),
+                queue_maxsize=config.QUEUE_MAXSIZE,
+                force_cpu=config.FORCE_CPU,
+                model_updater=self.model_updater,
+                detection_callback=self.record_detection,
+            )
+            self._reset_counters()
 
     def _reset_counters(self) -> None:
         self.ddos_count = 0
@@ -121,12 +127,15 @@ class PipelineController:
                 self.pipeline.stop()
             if self.detect:
                 self.detect.stop()
-
-            self.model_updater.stop_periodic_update()
+            if self.model_updater:
+                self.model_updater.stop_periodic_update()
 
             with self.lock:
-                self.pipeline_threads = []
                 self.pipeline_active.clear()
+                self.pipeline = None
+                self.detect = None
+                self.model_updater = None
+                self.pipeline_threads = []
 
             logger.info("Pipeline stopped successfully")
             return True
@@ -139,35 +148,35 @@ class PipelineController:
         return self.pipeline_active.is_set()
 
     def get_status(self) -> Dict[str, Any]:
-        status = {
-            "running": self.is_running(),
-            "start_time": self.start_time.isoformat() if self.start_time else None,
-            "uptime": (datetime.now() - self.start_time).total_seconds() if self.start_time else 0,
-            "processed_files": self.detect.processed_files if self.detect else 0,
-            "failed_files": self.detect.failed_files if self.detect else 0,
-            "ddos_detections": self.ddos_count,
-            "normal_detections": self.normal_count,
-            "suspicious_detections": self.suspicious_count,
-            "recent_detections_count": len(self.recent_detections),
-            "model_loaded": self.detect is not None and self.detect.model is not None,
-            "queue_size": getattr(self.detect, "file_queue", None).qsize() if self.detect else 0,
-            "device": str(getattr(self.detect, "device", "unknown")) if self.detect else "unknown",
-        }
+        with self.lock:
+            queue_size = 0
+            if self.detect and hasattr(self.detect, "file_queue"):
+                queue_size = self.detect.file_queue.qsize()
 
-        if self.pipeline and hasattr(self.pipeline, "get_status"):
-            status["pipeline"] = self.pipeline.get_status()
-
-        return status
+            return {
+                "running": self.is_running(),
+                "start_time": self.start_time.isoformat() if self.start_time else None,
+                "uptime": (datetime.now() - self.start_time).total_seconds() if self.start_time else 0,
+                "processed_files": self.detect.processed_files if self.detect else 0,
+                "failed_files": self.detect.failed_files if self.detect else 0,
+                "ddos_detections": self.ddos_count,
+                "normal_detections": self.normal_count,
+                "suspicious_detections": self.suspicious_count,
+                "recent_detections_count": len(self.recent_detections),
+                "model_loaded": self.detect is not None and self.detect.model is not None,
+                "queue_size": queue_size,
+                "device": str(getattr(self.detect, "device", "unknown")) if self.detect else "unknown",
+            }
 
     def get_recent_detections(self, limit: int = 20) -> List[Dict[str, Any]]:
         with self.lock:
-            return self.recent_detections[-limit:][::-1]
+            return list(reversed(self.recent_detections[-limit:]))
 
     def get_detection_details(self, detection_id: str) -> Optional[Dict[str, Any]]:
         with self.lock:
             for detection in self.recent_detections:
-                if detection["id"] == detection_id:
-                    return detection
+                if detection.get("id") == detection_id:
+                    return dict(detection)
             return None
 
     def record_detection(self, detection_data: Dict[str, Any]) -> None:
@@ -175,7 +184,7 @@ class PipelineController:
         confidence = float(detection_data.get("confidence", 0.0) or 0.0)
 
         if isinstance(prediction_val, (int, float)):
-            is_ddos = prediction_val == 1
+            is_ddos = int(prediction_val) == 1
         else:
             is_ddos = str(prediction_val).strip().lower() in ("ddos", "1", "attack")
 
@@ -204,7 +213,16 @@ class PipelineController:
             severity = "critical"
         else:
             status = "Normal"
-            severity = "normal"
+            severity = "info"
+
+        protocol = detection_data.get("Protocol", "unknown")
+        if isinstance(protocol, (int, float)):
+            protocol_num = int(protocol)
+            protocol_map = {6: "TCP", 17: "UDP", 1: "ICMP"}
+            protocol = protocol_map.get(protocol_num, f"Proto-{protocol_num}")
+
+        duration_us = float(detection_data.get("Flow Duration", 0) or 0)
+        duration_sec = duration_us / 1_000_000.0
 
         with self.lock:
             if status == "DDoS":
@@ -219,11 +237,11 @@ class PipelineController:
                 "timestamp": datetime.now().isoformat(),
                 "src_ip": src_ip,
                 "dst_ip": dst_ip,
-                "protocol": detection_data.get("Protocol", "unknown"),
-                "duration": float(detection_data.get("Flow Duration", 0) or 0),
+                "protocol": protocol,
+                "duration": round(duration_sec, 4),
                 "status": status,
                 "severity": severity,
-                "confidence": confidence,
+                "confidence": round(confidence, 4),
                 "flow_id": detection_data.get("Flow ID", "unknown"),
                 "packets": int(
                     detection_data.get("Total Fwd Packets", 0) or 0
@@ -236,8 +254,8 @@ class PipelineController:
             }
 
             self.recent_detections.append(detection)
-            if len(self.recent_detections) > 100:
-                self.recent_detections.pop(0)
+            if len(self.recent_detections) > 200:
+                self.recent_detections = self.recent_detections[-100:]
 
         if self.mitigation_agent:
             self.mitigation_agent.on_detection(detection)

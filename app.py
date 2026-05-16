@@ -170,6 +170,121 @@ def api_receive_raw_data():
     return jsonify({"status": "success", "received": True})
 
 
+# Mitigation API
+@app.route("/api/mitigation/status")
+def api_mitigation_status():
+    if controller.mitigation_agent:
+        return jsonify(controller.mitigation_agent.get_status())
+    return jsonify({"enabled": False})
+
+@app.route("/api/mitigation/block", methods=["POST"])
+def api_mitigation_block():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    controller.mitigation_agent.block_ip(ip, "Manual block")
+    return jsonify({"status": "blocked", "ip": ip})
+
+@app.route("/api/mitigation/unblock", methods=["POST"])
+def api_mitigation_unblock():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    if controller.mitigation_agent.unblock_ip(ip):
+        return jsonify({"status": "unblocked", "ip": ip})
+    return jsonify({"error": "Not blocked"}), 404
+
+@app.route("/api/mitigation/toggle", methods=["POST"])
+def api_mitigation_toggle():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    enabled = request.json.get("enabled", False)
+    controller.mitigation_agent.set_enabled(enabled)
+    return jsonify({"status": "ok", "enabled": enabled})
+
+@app.route("/api/mitigation/toggle_auto", methods=["POST"])
+def api_mitigation_toggle_auto():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    enabled = request.json.get("enabled", False)
+    controller.mitigation_agent.set_auto_block(enabled)
+    return jsonify({"status": "ok", "auto_block": enabled})
+
+@app.route("/api/mitigation/toggle_ml_auto", methods=["POST"])
+def api_mitigation_toggle_ml_auto():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    enabled = request.json.get("enabled", False)
+    controller.mitigation_agent.set_ml_auto_block(enabled)
+    return jsonify({"status": "ok", "ml_auto_block": enabled})
+
+@app.route("/api/mitigation/settings", methods=["POST"])
+def api_mitigation_settings():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    data = request.json
+    if "rate_limit_ppm" in data:
+        controller.mitigation_agent.set_rate_limit_ppm(int(data["rate_limit_ppm"]))
+    if "confidence" in data:
+        controller.mitigation_agent.set_confidence(float(data["confidence"]))
+    if "count" in data:
+        controller.mitigation_agent.set_detection_count(int(data["count"]))
+    if "duration" in data:
+        controller.mitigation_agent.set_block_duration(int(data["duration"]))
+    return jsonify({"status": "ok"})
+
+@app.route("/api/mitigation/whitelist", methods=["POST"])
+def api_mitigation_whitelist():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    controller.mitigation_agent.add_whitelist(ip)
+    return jsonify({"status": "whitelisted", "ip": ip})
+
+@app.route("/api/mitigation/unwhitelist", methods=["POST"])
+def api_mitigation_unwhitelist():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    controller.mitigation_agent.remove_whitelist(ip)
+    return jsonify({"status": "removed", "ip": ip})
+
+@app.route("/api/mitigation/blacklist", methods=["POST"])
+def api_mitigation_blacklist():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    controller.mitigation_agent.add_blacklist(ip)
+    return jsonify({"status": "blacklisted", "ip": ip})
+
+@app.route("/api/mitigation/unblacklist", methods=["POST"])
+def api_mitigation_unblacklist():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    controller.mitigation_agent.remove_blacklist(ip)
+    return jsonify({"status": "removed", "ip": ip})
+
+@app.route("/api/mitigation/clear_counts", methods=["POST"])
+def api_mitigation_clear_counts():
+    if not controller.mitigation_agent:
+        return jsonify({"error": "Not enabled"}), 400
+    controller.mitigation_agent.clear_detection_counts()
+    return jsonify({"status": "cleared"})
+
+
 def graceful_shutdown(signum, frame):
     logger = logging.getLogger(__name__)
     logger.info(f"Received signal {signum}, shutting down gracefully...")

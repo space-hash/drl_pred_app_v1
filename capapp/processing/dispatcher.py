@@ -57,7 +57,6 @@ class FileDispatcher:
                 FileManager.move_to_error(in_progress_path)
 
         logger.info("File dispatcher loop has stopped.")
-        self.feature_extractor.shutdown()
 
     def start(self):
         """Starts the file dispatcher thread."""
@@ -66,6 +65,7 @@ class FileDispatcher:
             return
 
         self.shutdown_event.clear()
+        self.feature_extractor = CICFeatureExtractor()
         self.dispatcher_thread = threading.Thread(target=self._dispatch_loop, name="FileDispatcher")
         self.dispatcher_thread.daemon = True
         self.dispatcher_thread.start()
@@ -77,4 +77,5 @@ class FileDispatcher:
         self.shutdown_event.set()
         if self.dispatcher_thread and self.dispatcher_thread.is_alive():
             self.dispatcher_thread.join(timeout=10)
+        self.feature_extractor.shutdown()
         logger.info("File dispatcher stopped.")

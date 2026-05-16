@@ -105,6 +105,113 @@
             </div>
         </div>
 
+        <!-- Mitigation Control -->
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="bi bi-shield-check"></i> Mitigation Control</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Mitigation</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="mitigationToggle">
+                            <label class="form-check-label" for="mitigationToggle">Enable mitigation</label>
+                        </div>
+                        <small class="text-muted">Master on/off for all mitigation</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Rate-Based Auto-Block</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="autoBlockToggle">
+                            <label class="form-check-label" for="autoBlockToggle">Enable rate blocking</label>
+                        </div>
+                        <small class="text-muted">Block IPs exceeding packet rate</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Rate Limit (packets/min)</label>
+                        <input type="number" class="form-control" id="rateLimitInput" min="10" max="10000" value="100">
+                        <small class="text-muted">Default: 100 packets/min</small>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">ML-Based Auto-Block</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="mlAutoBlockToggle">
+                            <label class="form-check-label" for="mlAutoBlockToggle">Enable ML blocking</label>
+                        </div>
+                        <small class="text-muted">Block after N DDoS detections</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">ML Confidence Threshold</label>
+                        <input type="range" class="form-range" id="confidenceSlider" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('confVal').textContent=this.value">
+                        <small>Value: <span id="confVal">0.8</span></small>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">ML Detection Count</label>
+                        <input type="number" class="form-control" id="countInput" min="1" max="10" value="3">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Block Duration (minutes)</label>
+                        <input type="number" class="form-control" id="durationInput" min="1" max="1440" value="60">
+                    </div>
+                    <div class="col-md-8">
+                        <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Settings</button>
+                        <button class="btn btn-warning btn-sm" onclick="clearCounts()">Clear Counts</button>
+                        <span id="blockedCount" class="badge bg-danger ms-2">0 IPs Blocked</span>
+                    </div>
+                </div>
+                <hr>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Block IP</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="blockIpInput" placeholder="IP address">
+                            <button class="btn btn-danger" onclick="blockIp()">Block</button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Whitelist IP (never block)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="whitelistIpInput" placeholder="IP address">
+                            <button class="btn btn-success" onclick="whitelistIp()">Whitelist</button>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Blacklist IP (always block)</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="blacklistIpInput" placeholder="IP address">
+                            <button class="btn btn-dark" onclick="blacklistIp()">Blacklist</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Blocked IPs</label>
+                        <div id="blockedList" style="max-height:150px;overflow-y:auto;">
+                            <small class="text-muted">No blocked IPs</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Whitelist</label>
+                        <div id="whitelistList" style="max-height:150px;overflow-y:auto;">
+                            <small class="text-muted">Empty</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Blacklist</label>
+                        <div id="blacklistList" style="max-height:150px;overflow-y:auto;">
+                            <small class="text-muted">Empty</small>
+                        </div>
+                    </div>
+                </div>
+                <div id="mitMsg" class="mt-2 small text-success"></div>
+            </div>
+        </div>
+
         <!-- Statistics Cards -->
         <div class="row">
             <div class="col-md-3">
@@ -362,6 +469,172 @@
                     alert('Could not load detection details');
                 });
         }
+
+        // Mitigation functions
+        function loadMitigation() {
+            fetch('/api/mitigation/status')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('mitigationToggle').checked = d.enabled || false;
+                    document.getElementById('autoBlockToggle').checked = d.rate_limit_enabled || false;
+                    document.getElementById('rateLimitInput').value = d.rate_limit_ppm || 100;
+                    document.getElementById('mlAutoBlockToggle').checked = d.ml_auto_block || false;
+                    document.getElementById('confidenceSlider').value = d.confidence_threshold || 0.8;
+                    document.getElementById('confVal').textContent = d.confidence_threshold || 0.8;
+                    document.getElementById('countInput').value = d.detection_count || 3;
+                    document.getElementById('durationInput').value = d.block_duration_min || 60;
+                    document.getElementById('blockedCount').textContent = d.total_blocked + ' IPs Blocked';
+
+                    const bl = document.getElementById('blockedList');
+                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
+                        bl.innerHTML = '<small class="text-muted">No blocked IPs</small>';
+                    } else {
+                        bl.innerHTML = d.blocked_ips.map(b =>
+                            `<div class="d-flex justify-content-between align-items-center mb-1 p-1 bg-light rounded">
+                                <div>
+                                    <code>${b.ip}</code><br>
+                                    <small class="text-muted">${b.reason || ''}</small>
+                                </div>
+                                <span><small class="text-danger">${b.remaining_min}m</small>
+                                <button class="btn btn-sm btn-success ms-1" onclick="unblockIp('${b.ip}')">Unblock</button></span>
+                            </div>`
+                        ).join('');
+                    }
+
+                    const wl = document.getElementById('whitelistList');
+                    if (!d.whitelist || d.whitelist.length === 0) {
+                        wl.innerHTML = '<small class="text-muted">Empty</small>';
+                    } else {
+                        wl.innerHTML = d.whitelist.map(ip =>
+                            `<div class="d-flex justify-content-between align-items-center mb-1 p-1 bg-light rounded">
+                                <code>${ip}</code>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unwhitelistIp('${ip}')">Remove</button>
+                            </div>`
+                        ).join('');
+                    }
+
+                    const bl2 = document.getElementById('blacklistList');
+                    if (!d.blacklist || d.blacklist.length === 0) {
+                        bl2.innerHTML = '<small class="text-muted">Empty</small>';
+                    } else {
+                        bl2.innerHTML = d.blacklist.map(ip =>
+                            `<div class="d-flex justify-content-between align-items-center mb-1 p-1 bg-light rounded">
+                                <code>${ip}</code>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="unblacklistIp('${ip}')">Remove</button>
+                            </div>`
+                        ).join('');
+                    }
+                })
+                .catch(() => {});
+        }
+
+        document.getElementById('mitigationToggle').addEventListener('change', function() {
+            fetch('/api/mitigation/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: this.checked})
+            }).then(() => showMsg('Mitigation ' + (this.checked ? 'ON' : 'OFF')));
+        });
+
+        document.getElementById('autoBlockToggle').addEventListener('change', function() {
+            fetch('/api/mitigation/toggle_auto', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: this.checked})
+            }).then(() => showMsg('Rate auto-block ' + (this.checked ? 'ON' : 'OFF')));
+        });
+
+        document.getElementById('mlAutoBlockToggle').addEventListener('change', function() {
+            fetch('/api/mitigation/toggle_ml_auto', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: this.checked})
+            }).then(() => showMsg('ML auto-block ' + (this.checked ? 'ON' : 'OFF')));
+        });
+
+        function saveSettings() {
+            fetch('/api/mitigation/settings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    rate_limit_ppm: parseInt(document.getElementById('rateLimitInput').value),
+                    confidence: parseFloat(document.getElementById('confidenceSlider').value),
+                    count: parseInt(document.getElementById('countInput').value),
+                    duration: parseInt(document.getElementById('durationInput').value)
+                })
+            }).then(() => showMsg('Settings saved'));
+        }
+
+        function clearCounts() {
+            fetch('/api/mitigation/clear_counts', {method: 'POST'})
+                .then(() => showMsg('Detection counts cleared'));
+        }
+
+        function blockIp() {
+            const ip = document.getElementById('blockIpInput').value.trim();
+            if (!ip) return;
+            fetch('/api/mitigation/block', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => { document.getElementById('blockIpInput').value = ''; loadMitigation(); showMsg('Blocked ' + ip); });
+        }
+
+        function unblockIp(ip) {
+            fetch('/api/mitigation/unblock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => { loadMitigation(); showMsg('Unblocked ' + ip); });
+        }
+
+        function whitelistIp() {
+            const ip = document.getElementById('whitelistIpInput').value.trim();
+            if (!ip) return;
+            fetch('/api/mitigation/whitelist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => { document.getElementById('whitelistIpInput').value = ''; loadMitigation(); showMsg('Whitelisted ' + ip); });
+        }
+
+        function unwhitelistIp(ip) {
+            fetch('/api/mitigation/unwhitelist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => { loadMitigation(); showMsg('Removed from whitelist'); });
+        }
+
+        function blacklistIp() {
+            const ip = document.getElementById('blacklistIpInput').value.trim();
+            if (!ip) return;
+            fetch('/api/mitigation/blacklist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => { document.getElementById('blacklistIpInput').value = ''; loadMitigation(); showMsg('Blacklisted ' + ip); });
+        }
+
+        function unblacklistIp(ip) {
+            fetch('/api/mitigation/unblacklist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => { loadMitigation(); showMsg('Removed from blacklist'); });
+        }
+
+        function showMsg(msg) {
+            const el = document.getElementById('mitMsg');
+            el.textContent = msg;
+            setTimeout(() => { el.textContent = ''; }, 3000);
+        }
+
+        // Load mitigation on page load and every 10s
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMitigation();
+            setInterval(loadMitigation, 10000);
+        });
     </script>
 </body>
 </html>
