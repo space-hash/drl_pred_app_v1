@@ -118,7 +118,16 @@ class LocalPredictionPipeline:
 
         for col in ["Src IP", "Dst IP"]:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: int(ipaddress.IPv4Address(str(x))))
+                def ip_to_int(x):
+                    try:
+                        addr = ipaddress.ip_address(str(x))
+                        if isinstance(addr, ipaddress.IPv4Address):
+                            return int(addr)
+                        else:
+                            return int(addr) % (2**32)
+                    except Exception:
+                        return 0
+                df[col] = df[col].apply(ip_to_int)
 
         df = df.replace([np.inf, -np.inf], np.nan)
         col_means = df.mean()

@@ -8,7 +8,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime
 
-from scapy.all import rdpcap, IP, TCP, UDP, Scapy_Exception
+from scapy.all import rdpcap, IP, IPv6, TCP, UDP, Scapy_Exception
 
 from capapp.config.settings import config
 from capapp.utils.logger import logger
@@ -18,9 +18,10 @@ class _Flow:
     """Internal class to represent and track the state of a single network flow with proper directional separation."""
     def __init__(self, first_packet: Any, packet_time_ns: int):
         # Basic flow identification
-        self.src_ip = first_packet[IP].src
-        self.dst_ip = first_packet[IP].dst
-        self.proto = first_packet[IP].proto
+        self.is_ipv6 = first_packet.haslayer(IPv6)
+        self.src_ip = first_packet[IPv6].src if self.is_ipv6 else first_packet[IP].src
+        self.dst_ip = first_packet[IPv6].dst if self.is_ipv6 else first_packet[IP].dst
+        self.proto = first_packet[IPv6].nh if self.is_ipv6 else first_packet[IP].proto
         
         # Port handling
         if first_packet.haslayer(TCP) or first_packet.haslayer(UDP):
@@ -56,10 +57,26 @@ class _Flow:
         # Add the first packet
         self.add_packet(first_packet, packet_time_ns)
 
+    def _get_ip_header_len(self, packet: Any) -> int:
+        """Get IP header length for both IPv4 and IPv6."""
+        if packet.haslayer(IPv6):
+            return 40  # Fixed IPv6 header length
+        elif packet.haslayer(IP):
+            return packet[IP].ihl * 4
+        return 20  # Default
+
+    def _get_ip_total_len(self, packet: Any) -> int:
+        """Get IP total/payload length for both IPv4 and IPv6."""
+        if packet.haslayer(IPv6):
+            return packet[IPv6].plen
+        elif packet.haslayer(IP):
+            return packet[IP].len
+        return len(packet)
+
     def add_packet(self, packet: Any, packet_time_ns: int):
         """Add a packet to the flow with proper directional handling."""
         current_sport = packet.sport if packet.haslayer(TCP) or packet.haslayer(UDP) else 0
-        is_forward = (packet[IP].src == self.src_ip and current_sport == self.src_port)
+        is_forward = (packet[IPv6].src == self.src_ip if self.is_ipv6 else packet[IP].src == self.src_ip) and current_sport == self.src_port
         
         if is_forward:
             self.fwd_packets.append(packet)
@@ -74,7 +91,7 @@ class _Flow:
         
         # Track minimum forward segment size
         if is_forward and packet.haslayer(TCP):
-            seg_size = packet[IP].len - (packet[IP].ihl * 4)
+            seg_size = self._get_ip_total_len(packet) - self._get_ip_header_len(packet)
             if seg_size < self.min_fwd_seg_size:
                 self.min_fwd_seg_size = seg_size
         
@@ -203,8 +220,8 @@ class _Flow:
         flow_iat_stats = self._calculate_stats(flow_iat)
         
         # Header lengths
-        fwd_header_bytes = sum(p[IP].ihl * 4 for p in self.fwd_packets)
-        bwd_header_bytes = sum(p[IP].ihl * 4 for p in self.bwd_packets)
+        fwd_header_bytes = sum(self._get_ip_header_len(p) for p in self.fwd_packets)
+        bwd_header_bytes = sum(self._get_ip_header_len(p) for p in self.bwd_packets)
         
         # Bulk transfer statistics
         fwd_avg_bytes_bulk = (self.fwd_bulk_size / self.fwd_bulk_packets 
@@ -339,8 +356,12 @@ class CICFeatureExtractor:
         )
 
     def _get_flow_key(self, packet: Any) -> Optional[Tuple]:
-        if not packet.haslayer(IP): return None
-        src_ip, dst_ip, proto = packet[IP].src, packet[IP].dst, packet[IP].proto
+        if not packet.haslayer(IP) and not packet.haslayer(IPv6):
+            return None
+        if packet.haslayer(IPv6):
+            src_ip, dst_ip, proto = packet[IPv6].src, packet[IPv6].dst, packet[IPv6].nh
+        else:
+            src_ip, dst_ip, proto = packet[IP].src, packet[IP].dst, packet[IP].proto
         sport, dport = (packet.sport, packet.dport) if packet.haslayer(TCP) or packet.haslayer(UDP) else (0, 0)
         # Canonical ordering
         if (src_ip, sport) > (dst_ip, dport):

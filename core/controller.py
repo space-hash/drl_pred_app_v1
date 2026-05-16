@@ -194,14 +194,14 @@ class PipelineController:
         if isinstance(src_ip, (int, float)):
             import ipaddress
             try:
-                src_ip = str(ipaddress.IPv4Address(int(src_ip)))
+                src_ip = str(ipaddress.ip_address(int(src_ip)))
             except Exception:
                 src_ip = str(src_ip)
 
         if isinstance(dst_ip, (int, float)):
             import ipaddress
             try:
-                dst_ip = str(ipaddress.IPv4Address(int(dst_ip)))
+                dst_ip = str(ipaddress.ip_address(int(dst_ip)))
             except Exception:
                 dst_ip = str(dst_ip)
 
