@@ -8,53 +8,18 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .card {
-            margin-bottom: 20px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .alert-critical {
-            background-color: #ff4444;
-            color: white;
-        }
-        .alert-warning {
-            background-color: #ffbb33;
-            color: black;
-        }
-        .alert-normal {
-            background-color: #00C851;
-            color: white;
-        }
-        .stat-card {
-            text-align: center;
-            padding: 15px;
-            border-radius: 5px;
-            color: white;
-        }
-        #resultsTable {
-            font-size: 0.9rem;
-        }
-        .table-container {
-            max-height: 500px;
-            overflow-y: auto;
-        }
-        #manualUpdateBtn {
-            transition: all 0.3s ease;
-        }
-        #manualUpdateBtn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-        #updateStatus {
-            min-height: 20px;
-            transition: all 0.3s ease;
-        }
-        .privilege-warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 5px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
+        .card { margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .alert-critical { background-color: #ff4444; color: white; }
+        .alert-warning { background-color: #ffbb33; color: black; }
+        .alert-info { background-color: #33b5e5; color: white; }
+        .stat-card { text-align: center; padding: 15px; border-radius: 5px; color: white; }
+        #resultsTable { font-size: 0.9rem; }
+        .table-container { max-height: 500px; overflow-y: auto; }
+        #manualUpdateBtn { transition: all 0.3s ease; }
+        #manualUpdateBtn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #updateStatus { min-height: 20px; transition: all 0.3s ease; }
+        .privilege-warning { background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
+        .list-item { padding: 4px 8px; margin-bottom: 4px; border-radius: 4px; background: #f8f9fa; }
     </style>
 </head>
 <body>
@@ -64,12 +29,11 @@
         {% if not has_privileges %}
         <div class="privilege-warning">
             <strong>Warning:</strong> Insufficient privileges for packet capture. Run with:
-            <code>sudo setcap cap_net_raw,cap_net_admin+eip $(readlink -f $(which python3))</code>
-            or run the app with <code>sudo</code>.
+            <code>sudo python3 app.py</code>
         </div>
         {% endif %}
 
-        <!-- Control Panel -->
+        <!-- Pipeline Control -->
         <div class="card">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">Pipeline Control</h5>
@@ -77,14 +41,10 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <form action="/start" method="post">
-                            <button type="submit" class="btn btn-success btn-lg w-100" {% if is_running %}disabled{% endif %}>Start Detection</button>
-                        </form>
+                        <button id="startBtn" class="btn btn-success btn-lg w-100" {% if is_running %}disabled{% endif %}>Start Detection</button>
                     </div>
                     <div class="col-md-6">
-                        <form action="/stop" method="post">
-                            <button type="submit" class="btn btn-danger btn-lg w-100" {% if not is_running %}disabled{% endif %}>Stop Detection</button>
-                        </form>
+                        <button id="stopBtn" class="btn btn-danger btn-lg w-100" {% if not is_running %}disabled{% endif %}>Stop Detection</button>
                     </div>
                 </div>
                 <div class="row mt-3">
@@ -116,9 +76,8 @@
                         <label class="form-label fw-bold">Mitigation</label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="mitigationToggle">
-                            <label class="form-check-label" for="mitigationToggle">Enable mitigation</label>
+                            <label class="form-check-label" for="mitigationToggle">Enable all mitigation</label>
                         </div>
-                        <small class="text-muted">Master on/off for all mitigation</small>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Rate-Based Auto-Block</label>
@@ -126,12 +85,10 @@
                             <input class="form-check-input" type="checkbox" id="autoBlockToggle">
                             <label class="form-check-label" for="autoBlockToggle">Enable rate blocking</label>
                         </div>
-                        <small class="text-muted">Block IPs exceeding packet rate</small>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">Rate Limit (packets/min)</label>
                         <input type="number" class="form-control" id="rateLimitInput" min="10" max="10000" value="100">
-                        <small class="text-muted">Default: 100 packets/min</small>
                     </div>
                 </div>
                 <div class="row mb-3">
@@ -141,7 +98,6 @@
                             <input class="form-check-input" type="checkbox" id="mlAutoBlockToggle">
                             <label class="form-check-label" for="mlAutoBlockToggle">Enable ML blocking</label>
                         </div>
-                        <small class="text-muted">Block after N DDoS detections</small>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label fw-bold">ML Confidence Threshold</label>
@@ -158,10 +114,10 @@
                         <label class="form-label fw-bold">Block Duration (minutes)</label>
                         <input type="number" class="form-control" id="durationInput" min="1" max="1440" value="60">
                     </div>
-                    <div class="col-md-8">
+                    <div class="col-md-8 d-flex align-items-center gap-2">
                         <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Settings</button>
                         <button class="btn btn-warning btn-sm" onclick="clearCounts()">Clear Counts</button>
-                        <span id="blockedCount" class="badge bg-danger ms-2">0 IPs Blocked</span>
+                        <span id="blockedCount" class="badge bg-danger">0 IPs Blocked</span>
                     </div>
                 </div>
                 <hr>
@@ -215,28 +171,16 @@
         <!-- Statistics Cards -->
         <div class="row">
             <div class="col-md-3">
-                <div class="stat-card bg-info">
-                    <h3 id="processedFiles">0</h3>
-                    <p>Processed Files</p>
-                </div>
+                <div class="stat-card bg-info"><h3 id="processedFiles">0</h3><p>Processed Files</p></div>
             </div>
             <div class="col-md-3">
-                <div class="stat-card bg-warning">
-                    <h3 id="ddosDetections">0</h3>
-                    <p>DDoS Detections</p>
-                </div>
+                <div class="stat-card bg-warning"><h3 id="ddosDetections">0</h3><p>DDoS Detections</p></div>
             </div>
             <div class="col-md-3">
-                <div class="stat-card bg-success">
-                    <h3 id="normalDetections">0</h3>
-                    <p>Normal Traffic</p>
-                </div>
+                <div class="stat-card bg-success"><h3 id="normalDetections">0</h3><p>Normal Traffic</p></div>
             </div>
             <div class="col-md-3">
-                <div class="stat-card bg-danger">
-                    <h3 id="failedFiles">0</h3>
-                    <p>Failed Files</p>
-                </div>
+                <div class="stat-card bg-danger"><h3 id="failedFiles">0</h3><p>Failed Files</p></div>
             </div>
         </div>
 
@@ -260,8 +204,7 @@
                                     <th>Details</th>
                                 </tr>
                             </thead>
-                            <tbody id="resultsBody">
-                            </tbody>
+                            <tbody id="resultsBody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -284,24 +227,19 @@
                     <div class="card-body">
                         <ul class="list-group">
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Model Status
-                                <span class="badge bg-success" id="modelStatus">Loaded</span>
+                                Model Status <span class="badge bg-success" id="modelStatus">Loaded</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Processing Device
-                                <span class="badge bg-info" id="processingDevice">CPU</span>
+                                Processing Device <span class="badge bg-info" id="processingDevice">CPU</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Queue Size
-                                <span class="badge bg-primary" id="queueSize">0</span>
+                                Queue Size <span class="badge bg-primary" id="queueSize">0</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Last Dashboard Update
-                                <span class="badge bg-secondary" id="lastUpdate">Never</span>
+                                Last Dashboard Update <span class="badge bg-secondary" id="lastUpdate">Never</span>
                             </li>
                             <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Last Model Update
-                                <span class="badge bg-secondary" id="modelLastUpdate">Never</span>
+                                Last Model Update <span class="badge bg-secondary" id="modelLastUpdate">Never</span>
                             </li>
                         </ul>
                     </div>
@@ -315,55 +253,77 @@
 
         document.addEventListener('DOMContentLoaded', function() {
             initializeChart();
-            updateDashboard();
+            setupPipelineButtons();
             setupManualUpdate();
+            setupMitigationToggles();
+            updateDashboard();
+            loadMitigation();
             setInterval(updateDashboard, 5000);
+            setInterval(loadMitigation, 10000);
         });
 
-        function setupManualUpdate() {
-            const updateBtn = document.getElementById('manualUpdateBtn');
-            const updateStatus = document.getElementById('updateStatus');
+        function setupPipelineButtons() {
+            document.getElementById('startBtn').addEventListener('click', function() {
+                this.disabled = true;
+                fetch('/start', {method: 'POST'}).then(r => r.json()).then(d => {
+                    if (d.status === 'success') { location.reload(); }
+                    else { alert(d.message || 'Failed to start'); this.disabled = false; }
+                }).catch(() => { this.disabled = false; });
+            });
 
-            updateBtn.addEventListener('click', async function() {
-                updateBtn.disabled = true;
-                updateBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
-                updateStatus.textContent = "Starting model update...";
-                updateStatus.className = "mt-2 small text-info text-center";
-
-                try {
-                    const response = await fetch('/api/update_model', { method: 'POST' });
-                    const result = await response.json();
-
-                    if (result.status === 'success') {
-                        updateStatus.textContent = "Model updated successfully!";
-                        updateStatus.className = "mt-2 small text-success text-center";
-                        updateModelStatus();
-                    } else {
-                        updateStatus.textContent = `Update failed: ${result.message}`;
-                        updateStatus.className = "mt-2 small text-danger text-center";
-                    }
-                } catch (error) {
-                    updateStatus.textContent = "Error connecting to server";
-                    updateStatus.className = "mt-2 small text-danger text-center";
-                } finally {
-                    setTimeout(() => {
-                        updateBtn.disabled = false;
-                        updateBtn.innerHTML = '<i class="bi bi-cloud-arrow-down"></i> Update Model Now';
-                    }, 5000);
-                }
+            document.getElementById('stopBtn').addEventListener('click', function() {
+                this.disabled = true;
+                fetch('/stop', {method: 'POST'}).then(r => r.json()).then(d => {
+                    if (d.status === 'success') { location.reload(); }
+                    else { alert(d.message || 'Failed to stop'); this.disabled = false; }
+                }).catch(() => { this.disabled = false; });
             });
         }
 
-        async function updateModelStatus() {
-            try {
-                const response = await fetch('/api/model_status');
-                const status = await response.json();
-                if (status.data.last_update) {
-                    document.getElementById('modelLastUpdate').textContent = new Date(status.data.last_update).toLocaleString();
-                }
-            } catch (error) {
-                console.error('Failed to get model status:', error);
-            }
+        function setupManualUpdate() {
+            const btn = document.getElementById('manualUpdateBtn');
+            const status = document.getElementById('updateStatus');
+            btn.addEventListener('click', function() {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
+                status.textContent = 'Starting model update...';
+                status.className = 'mt-2 small text-info text-center';
+
+                fetch('/api/update_model', {method: 'POST'}).then(r => r.json()).then(d => {
+                    if (d.status === 'success') {
+                        status.textContent = 'Model updated successfully!';
+                        status.className = 'mt-2 small text-success text-center';
+                        updateModelStatus();
+                    } else {
+                        status.textContent = 'Update failed: ' + (d.message || 'Unknown');
+                        status.className = 'mt-2 small text-danger text-center';
+                    }
+                }).catch(() => {
+                    status.textContent = 'Error connecting to server';
+                    status.className = 'mt-2 small text-danger text-center';
+                }).finally(() => {
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-cloud-arrow-down"></i> Update Model Now';
+                    }, 5000);
+                });
+            });
+        }
+
+        function setupMitigationToggles() {
+            const el = (id) => document.getElementById(id);
+            el('mitigationToggle').addEventListener('change', function() {
+                fetch('/api/mitigation/toggle', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: this.checked})})
+                    .then(() => showMsg('Mitigation ' + (this.checked ? 'ON' : 'OFF')));
+            });
+            el('autoBlockToggle').addEventListener('change', function() {
+                fetch('/api/mitigation/toggle_auto', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: this.checked})})
+                    .then(() => showMsg('Rate auto-block ' + (this.checked ? 'ON' : 'OFF')));
+            });
+            el('mlAutoBlockToggle').addEventListener('change', function() {
+                fetch('/api/mitigation/toggle_ml_auto', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: this.checked})})
+                    .then(() => showMsg('ML auto-block ' + (this.checked ? 'ON' : 'OFF')));
+            });
         }
 
         function initializeChart() {
@@ -371,186 +331,120 @@
             detectionChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Normal Traffic', 'DDoS Traffic', 'Suspicious'],
+                    labels: ['Normal', 'DDoS', 'Suspicious'],
                     datasets: [{
                         data: [1, 0, 0],
                         backgroundColor: ['#00C851', '#ff4444', '#ffbb33'],
                         borderWidth: 1
                     }]
                 },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'bottom' }
-                    }
-                }
+                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
             });
         }
 
         function updateDashboard() {
-            fetch('/api/status')
-                .then(response => response.json())
-                .then(data => {
-                    const statusDiv = document.getElementById('pipelineStatus');
-                    if (data.running) {
-                        statusDiv.innerHTML = '<div class="alert alert-success">Status: Running</div>';
-                    } else {
-                        statusDiv.innerHTML = '<div class="alert alert-warning">Status: Stopped</div>';
-                    }
+            fetch('/api/status').then(r => r.json()).then(data => {
+                const statusDiv = document.getElementById('pipelineStatus');
+                statusDiv.innerHTML = data.running
+                    ? '<div class="alert alert-success">Status: Running</div>'
+                    : '<div class="alert alert-warning">Status: Stopped</div>';
 
-                    document.getElementById('processedFiles').textContent = data.processed_files;
-                    document.getElementById('ddosDetections').textContent = data.ddos_detections || 0;
-                    document.getElementById('normalDetections').textContent = data.normal_detections || 0;
-                    document.getElementById('failedFiles').textContent = data.failed_files;
-                    document.getElementById('modelStatus').textContent = data.model_loaded ? 'Loaded' : 'Not Loaded';
-                    document.getElementById('processingDevice').textContent = (data.device && data.device.includes('cuda')) ? 'GPU' : 'CPU';
-                    document.getElementById('queueSize').textContent = data.queue_size;
-                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                document.getElementById('processedFiles').textContent = data.processed_files;
+                document.getElementById('ddosDetections').textContent = data.ddos_detections || 0;
+                document.getElementById('normalDetections').textContent = data.normal_detections || 0;
+                document.getElementById('failedFiles').textContent = data.failed_files;
+                document.getElementById('modelStatus').textContent = data.model_loaded ? 'Loaded' : 'Not Loaded';
+                document.getElementById('processingDevice').textContent = (data.device && data.device.includes('cuda')) ? 'GPU' : 'CPU';
+                document.getElementById('queueSize').textContent = data.queue_size;
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
-                    if (data.detection_stats) {
-                        detectionChart.data.datasets[0].data = [
-                            data.detection_stats.normal || 0,
-                            data.detection_stats.ddos || 0,
-                            data.detection_stats.suspicious || 0
-                        ];
-                        detectionChart.update();
-                    }
-                })
-                .catch(error => console.error('Error fetching status:', error));
+                if (data.detection_stats && detectionChart) {
+                    detectionChart.data.datasets[0].data = [
+                        data.detection_stats.normal || 0,
+                        data.detection_stats.ddos || 0,
+                        data.detection_stats.suspicious || 0
+                    ];
+                    detectionChart.update();
+                }
+            }).catch(e => console.error('Error fetching status:', e));
 
-            fetch('/api/detections')
-                .then(response => response.json())
-                .then(data => {
-                    const tbody = document.getElementById('resultsBody');
-                    tbody.innerHTML = '';
+            fetch('/api/detections').then(r => r.json()).then(data => {
+                const tbody = document.getElementById('resultsBody');
+                if (!data.detections || data.detections.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No detections yet</td></tr>';
+                    return;
+                }
 
-                    if (!data.detections || data.detections.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No detections yet</td></tr>';
+                tbody.innerHTML = data.detections.map(d => {
+                    const cls = d.severity === 'critical' ? 'alert-critical' : d.severity === 'warning' ? 'alert-warning' : 'alert-info';
+                    return `<tr>
+                        <td>${new Date(d.timestamp).toLocaleString()}</td>
+                        <td>${d.src_ip}</td>
+                        <td>${d.dst_ip}</td>
+                        <td>${d.protocol}</td>
+                        <td>${parseFloat(d.duration || 0).toFixed(2)}s</td>
+                        <td><span class="badge ${cls}">${d.status}</span></td>
+                        <td><button class="btn btn-sm btn-info" onclick="showDetails('${d.id}')">View</button></td>
+                    </tr>`;
+                }).join('');
+            }).catch(e => console.error('Error fetching detections:', e));
+        }
+
+        function showDetails(id) {
+            fetch('/api/detections/' + id).then(r => r.json()).then(d => {
+                alert(
+                    'Flow ID: ' + d.flow_id + '\n' +
+                    'Source IP: ' + d.src_ip + '\n' +
+                    'Destination IP: ' + d.dst_ip + '\n' +
+                    'Packets: ' + d.packets + '\n' +
+                    'Bytes: ' + d.bytes + '\n' +
+                    'Duration: ' + d.duration + 's\n' +
+                    'Confidence: ' + (d.confidence * 100).toFixed(2) + '%\n' +
+                    'Timestamp: ' + new Date(d.timestamp).toLocaleString()
+                );
+            }).catch(() => alert('Could not load detection details'));
+        }
+
+        function updateModelStatus() {
+            fetch('/api/model_status').then(r => r.json()).then(d => {
+                if (d.data && d.data.last_update) {
+                    document.getElementById('modelLastUpdate').textContent = new Date(d.data.last_update).toLocaleString();
+                }
+            }).catch(() => {});
+        }
+
+        function loadMitigation() {
+            fetch('/api/mitigation/status').then(r => r.json()).then(d => {
+                document.getElementById('mitigationToggle').checked = d.enabled || false;
+                document.getElementById('autoBlockToggle').checked = d.rate_limit_enabled || false;
+                document.getElementById('rateLimitInput').value = d.rate_limit_ppm || 100;
+                document.getElementById('mlAutoBlockToggle').checked = d.ml_auto_block || false;
+                document.getElementById('confidenceSlider').value = d.confidence_threshold || 0.8;
+                document.getElementById('confVal').textContent = d.confidence_threshold || 0.8;
+                document.getElementById('countInput').value = d.detection_count || 3;
+                document.getElementById('durationInput').value = d.block_duration_min || 60;
+                document.getElementById('blockedCount').textContent = d.total_blocked + ' IPs Blocked';
+
+                const renderList = (containerId, items, btnText, btnClass, btnAction) => {
+                    const el = document.getElementById(containerId);
+                    if (!items || items.length === 0) {
+                        el.innerHTML = '<small class="text-muted">Empty</small>';
                         return;
                     }
+                    el.innerHTML = items.map(item =>
+                        `<div class="list-item d-flex justify-content-between align-items-center">
+                            <div><code>${item.ip || item}</code>${item.reason ? '<br><small class="text-muted">' + item.reason + '</small>' : ''}</div>
+                            <span>${item.remaining_min != null ? '<small class="text-danger">' + item.remaining_min + 'm</small>' : ''}
+                            <button class="btn btn-sm ${btnClass} ms-1" onclick="${btnAction}('${item.ip || item}')">${btnText}</button></span>
+                        </div>`
+                    ).join('');
+                };
 
-                    data.detections.forEach(detection => {
-                        const row = document.createElement('tr');
-                        let alertClass = detection.severity === 'critical' ? 'alert-critical' : 'alert-normal';
-
-                        row.innerHTML = `
-                            <td>${new Date(detection.timestamp).toLocaleString()}</td>
-                            <td>${detection.src_ip}</td>
-                            <td>${detection.dst_ip}</td>
-                            <td>${detection.protocol}</td>
-                            <td>${parseFloat(detection.duration || 0).toFixed(2)}s</td>
-                            <td><span class="badge ${alertClass}">${detection.status}</span></td>
-                            <td><button class="btn btn-sm btn-info" onclick="showDetails('${detection.id}')">View</button></td>
-                        `;
-                        tbody.appendChild(row);
-                    });
-                })
-                .catch(error => console.error('Error fetching detections:', error));
+                renderList('blockedList', d.blocked_ips, 'Unblock', 'btn-success', 'unblockIp');
+                renderList('whitelistList', d.whitelist, 'Remove', 'btn-outline-secondary', 'unwhitelistIp');
+                renderList('blacklistList', d.blacklist, 'Remove', 'btn-outline-secondary', 'unblacklistIp');
+            }).catch(() => {});
         }
-
-        function showDetails(detectionId) {
-            fetch(`/api/detections/${detectionId}`)
-                .then(response => response.json())
-                .then(data => {
-                    alert(
-                        `DDoS Detection Details:\n\n` +
-                        `Flow ID: ${data.flow_id}\n` +
-                        `Source IP: ${data.src_ip}\n` +
-                        `Destination IP: ${data.dst_ip}\n` +
-                        `Packets: ${data.packets}\n` +
-                        `Bytes: ${data.bytes}\n` +
-                        `Duration: ${data.duration}s\n` +
-                        `Confidence: ${(data.confidence * 100).toFixed(2)}%\n` +
-                        `Timestamp: ${new Date(data.timestamp).toLocaleString()}`
-                    );
-                })
-                .catch(error => {
-                    console.error('Error fetching detection details:', error);
-                    alert('Could not load detection details');
-                });
-        }
-
-        // Mitigation functions
-        function loadMitigation() {
-            fetch('/api/mitigation/status')
-                .then(r => r.json())
-                .then(d => {
-                    document.getElementById('mitigationToggle').checked = d.enabled || false;
-                    document.getElementById('autoBlockToggle').checked = d.rate_limit_enabled || false;
-                    document.getElementById('rateLimitInput').value = d.rate_limit_ppm || 100;
-                    document.getElementById('mlAutoBlockToggle').checked = d.ml_auto_block || false;
-                    document.getElementById('confidenceSlider').value = d.confidence_threshold || 0.8;
-                    document.getElementById('confVal').textContent = d.confidence_threshold || 0.8;
-                    document.getElementById('countInput').value = d.detection_count || 3;
-                    document.getElementById('durationInput').value = d.block_duration_min || 60;
-                    document.getElementById('blockedCount').textContent = d.total_blocked + ' IPs Blocked';
-
-                    const bl = document.getElementById('blockedList');
-                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
-                        bl.innerHTML = '<small class="text-muted">No blocked IPs</small>';
-                    } else {
-                        bl.innerHTML = d.blocked_ips.map(b =>
-                            `<div class="d-flex justify-content-between align-items-center mb-1 p-1 bg-light rounded">
-                                <div>
-                                    <code>${b.ip}</code><br>
-                                    <small class="text-muted">${b.reason || ''}</small>
-                                </div>
-                                <span><small class="text-danger">${b.remaining_min}m</small>
-                                <button class="btn btn-sm btn-success ms-1" onclick="unblockIp('${b.ip}')">Unblock</button></span>
-                            </div>`
-                        ).join('');
-                    }
-
-                    const wl = document.getElementById('whitelistList');
-                    if (!d.whitelist || d.whitelist.length === 0) {
-                        wl.innerHTML = '<small class="text-muted">Empty</small>';
-                    } else {
-                        wl.innerHTML = d.whitelist.map(ip =>
-                            `<div class="d-flex justify-content-between align-items-center mb-1 p-1 bg-light rounded">
-                                <code>${ip}</code>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="unwhitelistIp('${ip}')">Remove</button>
-                            </div>`
-                        ).join('');
-                    }
-
-                    const bl2 = document.getElementById('blacklistList');
-                    if (!d.blacklist || d.blacklist.length === 0) {
-                        bl2.innerHTML = '<small class="text-muted">Empty</small>';
-                    } else {
-                        bl2.innerHTML = d.blacklist.map(ip =>
-                            `<div class="d-flex justify-content-between align-items-center mb-1 p-1 bg-light rounded">
-                                <code>${ip}</code>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="unblacklistIp('${ip}')">Remove</button>
-                            </div>`
-                        ).join('');
-                    }
-                })
-                .catch(() => {});
-        }
-
-        document.getElementById('mitigationToggle').addEventListener('change', function() {
-            fetch('/api/mitigation/toggle', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({enabled: this.checked})
-            }).then(() => showMsg('Mitigation ' + (this.checked ? 'ON' : 'OFF')));
-        });
-
-        document.getElementById('autoBlockToggle').addEventListener('change', function() {
-            fetch('/api/mitigation/toggle_auto', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({enabled: this.checked})
-            }).then(() => showMsg('Rate auto-block ' + (this.checked ? 'ON' : 'OFF')));
-        });
-
-        document.getElementById('mlAutoBlockToggle').addEventListener('change', function() {
-            fetch('/api/mitigation/toggle_ml_auto', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({enabled: this.checked})
-            }).then(() => showMsg('ML auto-block ' + (this.checked ? 'ON' : 'OFF')));
-        });
 
         function saveSettings() {
             fetch('/api/mitigation/settings', {
@@ -566,62 +460,43 @@
         }
 
         function clearCounts() {
-            fetch('/api/mitigation/clear_counts', {method: 'POST'})
-                .then(() => showMsg('Detection counts cleared'));
+            fetch('/api/mitigation/clear_counts', {method: 'POST'}).then(() => showMsg('Detection counts cleared'));
         }
 
         function blockIp() {
             const ip = document.getElementById('blockIpInput').value.trim();
             if (!ip) return;
-            fetch('/api/mitigation/block', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ip})
-            }).then(() => { document.getElementById('blockIpInput').value = ''; loadMitigation(); showMsg('Blocked ' + ip); });
+            fetch('/api/mitigation/block', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                .then(() => { document.getElementById('blockIpInput').value = ''; loadMitigation(); showMsg('Blocked ' + ip); });
         }
 
         function unblockIp(ip) {
-            fetch('/api/mitigation/unblock', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ip})
-            }).then(() => { loadMitigation(); showMsg('Unblocked ' + ip); });
+            fetch('/api/mitigation/unblock', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                .then(() => { loadMitigation(); showMsg('Unblocked ' + ip); });
         }
 
         function whitelistIp() {
             const ip = document.getElementById('whitelistIpInput').value.trim();
             if (!ip) return;
-            fetch('/api/mitigation/whitelist', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ip})
-            }).then(() => { document.getElementById('whitelistIpInput').value = ''; loadMitigation(); showMsg('Whitelisted ' + ip); });
+            fetch('/api/mitigation/whitelist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                .then(() => { document.getElementById('whitelistIpInput').value = ''; loadMitigation(); showMsg('Whitelisted ' + ip); });
         }
 
         function unwhitelistIp(ip) {
-            fetch('/api/mitigation/unwhitelist', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ip})
-            }).then(() => { loadMitigation(); showMsg('Removed from whitelist'); });
+            fetch('/api/mitigation/unwhitelist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                .then(() => { loadMitigation(); showMsg('Removed from whitelist'); });
         }
 
         function blacklistIp() {
             const ip = document.getElementById('blacklistIpInput').value.trim();
             if (!ip) return;
-            fetch('/api/mitigation/blacklist', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ip})
-            }).then(() => { document.getElementById('blacklistIpInput').value = ''; loadMitigation(); showMsg('Blacklisted ' + ip); });
+            fetch('/api/mitigation/blacklist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                .then(() => { document.getElementById('blacklistIpInput').value = ''; loadMitigation(); showMsg('Blacklisted ' + ip); });
         }
 
         function unblacklistIp(ip) {
-            fetch('/api/mitigation/unblacklist', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ip})
-            }).then(() => { loadMitigation(); showMsg('Removed from blacklist'); });
+            fetch('/api/mitigation/unblacklist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
+                .then(() => { loadMitigation(); showMsg('Removed from blacklist'); });
         }
 
         function showMsg(msg) {
@@ -629,12 +504,6 @@
             el.textContent = msg;
             setTimeout(() => { el.textContent = ''; }, 3000);
         }
-
-        // Load mitigation on page load and every 10s
-        document.addEventListener('DOMContentLoaded', function() {
-            loadMitigation();
-            setInterval(loadMitigation, 10000);
-        });
     </script>
 </body>
 </html>

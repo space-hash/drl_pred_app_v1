@@ -7,6 +7,7 @@ from threading import Thread, Event, RLock
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import uuid
+import ipaddress
 from detection_module.model_update import ModelUpdater
 from capapp.orchestration.pipeline import DDoSPipeline
 from detection_module.predict_pipeline import LocalPredictionPipeline
@@ -15,22 +16,55 @@ from capapp.config.settings import config
 
 config.setup_directories()
 
+PROTOCOL_MAP = {1: "ICMP", 6: "TCP", 17: "UDP"}
+
+
+def _normalize_ip(value):
+    """Convert IP value to string, handling integer representations."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)):
+        try:
+            return str(ipaddress.IPv4Address(int(value)))
+        except Exception:
+            return str(value)
+    return "unknown"
+
+
+def _parse_prediction(value):
+    """Parse prediction value into boolean is_ddos."""
+    if isinstance(value, (int, float)):
+        return int(value) == 1
+    return str(value).strip().lower() in ("ddos", "1", "attack")
+
+
+def _classify_detection(is_ddos, confidence):
+    """Classify detection status and severity."""
+    if is_ddos:
+        if confidence < 0.6:
+            return "Suspicious", "warning"
+        return "DDoS", "critical"
+    return "Normal", "info"
+
 
 class PipelineController:
+    """Manages the full detection pipeline lifecycle."""
+
     def __init__(self):
         self.pipeline_active = Event()
         self.lock = RLock()
 
-        self.pipeline: Optional[DDoSPipeline] = None
-        self.detect: Optional[LocalPredictionPipeline] = None
-        self.model_updater: Optional[ModelUpdater] = None
+        self.pipeline = None
+        self.detect = None
+        self.model_updater = None
         self.mitigation_agent = None
+        self.pipeline_threads = []
 
         self.ddos_count = 0
         self.normal_count = 0
         self.suspicious_count = 0
-        self.recent_detections: List[Dict[str, Any]] = []
-        self.start_time: Optional[datetime] = None
+        self.recent_detections = []
+        self.start_time = None
         self.model_path = str(config.MODEL_PATH)
 
         if config.MITIGATION_ENABLED:
@@ -44,10 +78,14 @@ class PipelineController:
                 detection_count=config.MITIGATION_DETECTION_COUNT,
                 block_duration_minutes=config.MITIGATION_BLOCK_DURATION_MINUTES,
             )
-            logger.info("Mitigation agent initialized (auto_block=%s, rate_limit=%s ppm=%s)",
-                       config.MITIGATION_AUTO_BLOCK, config.MITIGATION_RATE_LIMIT_ENABLED, config.MITIGATION_RATE_LIMIT_PPM)
+            logger.info(
+                "Mitigation agent initialized (auto_block=%s, rate_limit=%s ppm=%s)",
+                config.MITIGATION_AUTO_BLOCK,
+                config.MITIGATION_RATE_LIMIT_ENABLED,
+                config.MITIGATION_RATE_LIMIT_PPM,
+            )
 
-    def initialize_components(self) -> None:
+    def initialize_components(self):
         with self.lock:
             self.model_updater = ModelUpdater(
                 model_api_url=config.MODEL_API_URL,
@@ -66,14 +104,14 @@ class PipelineController:
             )
             self._reset_counters()
 
-    def _reset_counters(self) -> None:
+    def _reset_counters(self):
         self.ddos_count = 0
         self.normal_count = 0
         self.suspicious_count = 0
         self.recent_detections = []
         self.start_time = datetime.now()
 
-    def start_all(self) -> bool:
+    def start_all(self):
         if self.pipeline_active.is_set():
             logger.warning("Pipeline already running")
             return False
@@ -83,12 +121,11 @@ class PipelineController:
             self.model_updater.start_periodic_update()
 
             threads = [
-                Thread(target=self._run_pipeline, name="DDoSPipelineThread"),
-                Thread(target=self._run_detection, name="DetectionThread"),
+                Thread(target=self._run_pipeline, name="DDoSPipelineThread", daemon=True),
+                Thread(target=self._run_detection, name="DetectionThread", daemon=True),
             ]
 
             for t in threads:
-                t.daemon = True
                 t.start()
 
             with self.lock:
@@ -99,25 +136,25 @@ class PipelineController:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to start pipeline: {e}")
+            logger.error("Failed to start pipeline: %s", e)
             self.stop_all()
             return False
 
-    def _run_pipeline(self) -> None:
+    def _run_pipeline(self):
         try:
             if self.pipeline:
                 self.pipeline.run()
         except Exception as e:
-            logger.error(f"Pipeline thread failed: {e}")
+            logger.error("Pipeline thread failed: %s", e)
 
-    def _run_detection(self) -> None:
+    def _run_detection(self):
         try:
             if self.detect:
                 self.detect.start()
         except Exception as e:
-            logger.error(f"Detection thread failed: {e}")
+            logger.error("Detection thread failed: %s", e)
 
-    def stop_all(self) -> bool:
+    def stop_all(self):
         if not self.pipeline_active.is_set():
             logger.warning("Pipeline not running")
             return False
@@ -141,13 +178,13 @@ class PipelineController:
             return True
 
         except Exception as e:
-            logger.error(f"Error stopping pipeline: {e}")
+            logger.error("Error stopping pipeline: %s", e)
             return False
 
-    def is_running(self) -> bool:
+    def is_running(self):
         return self.pipeline_active.is_set()
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self):
         with self.lock:
             queue_size = 0
             if self.detect and hasattr(self.detect, "file_queue"):
@@ -168,58 +205,29 @@ class PipelineController:
                 "device": str(getattr(self.detect, "device", "unknown")) if self.detect else "unknown",
             }
 
-    def get_recent_detections(self, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_recent_detections(self, limit=20):
         with self.lock:
             return list(reversed(self.recent_detections[-limit:]))
 
-    def get_detection_details(self, detection_id: str) -> Optional[Dict[str, Any]]:
+    def get_detection_details(self, detection_id):
         with self.lock:
             for detection in self.recent_detections:
                 if detection.get("id") == detection_id:
                     return dict(detection)
             return None
 
-    def record_detection(self, detection_data: Dict[str, Any]) -> None:
+    def record_detection(self, detection_data):
         prediction_val = detection_data.get("prediction", 0)
         confidence = float(detection_data.get("confidence", 0.0) or 0.0)
+        is_ddos = _parse_prediction(prediction_val)
+        status, severity = _classify_detection(is_ddos, confidence)
 
-        if isinstance(prediction_val, (int, float)):
-            is_ddos = int(prediction_val) == 1
-        else:
-            is_ddos = str(prediction_val).strip().lower() in ("ddos", "1", "attack")
-
-        src_ip = detection_data.get("Src IP", "unknown")
-        dst_ip = detection_data.get("Dst IP", "unknown")
-
-        if isinstance(src_ip, (int, float)):
-            import ipaddress
-            try:
-                src_ip = str(ipaddress.IPv4Address(int(src_ip)))
-            except Exception:
-                src_ip = str(src_ip)
-
-        if isinstance(dst_ip, (int, float)):
-            import ipaddress
-            try:
-                dst_ip = str(ipaddress.IPv4Address(int(dst_ip)))
-            except Exception:
-                dst_ip = str(dst_ip)
-
-        if is_ddos and confidence < 0.6:
-            status = "Suspicious"
-            severity = "warning"
-        elif is_ddos:
-            status = "DDoS"
-            severity = "critical"
-        else:
-            status = "Normal"
-            severity = "info"
+        src_ip = _normalize_ip(detection_data.get("Src IP"))
+        dst_ip = _normalize_ip(detection_data.get("Dst IP"))
 
         protocol = detection_data.get("Protocol", "unknown")
         if isinstance(protocol, (int, float)):
-            protocol_num = int(protocol)
-            protocol_map = {6: "TCP", 17: "UDP", 1: "ICMP"}
-            protocol = protocol_map.get(protocol_num, f"Proto-{protocol_num}")
+            protocol = PROTOCOL_MAP.get(int(protocol), f"Proto-{int(protocol)}")
 
         duration_us = float(detection_data.get("Flow Duration", 0) or 0)
         duration_sec = duration_us / 1_000_000.0
@@ -243,13 +251,9 @@ class PipelineController:
                 "severity": severity,
                 "confidence": round(confidence, 4),
                 "flow_id": detection_data.get("Flow ID", "unknown"),
-                "packets": int(
-                    detection_data.get("Total Fwd Packets", 0) or 0
-                )
+                "packets": int(detection_data.get("Total Fwd Packets", 0) or 0)
                 + int(detection_data.get("Total Bwd Packets", 0) or 0),
-                "bytes": int(
-                    detection_data.get("Total Length of Fwd Packets", 0) or 0
-                )
+                "bytes": int(detection_data.get("Total Length of Fwd Packets", 0) or 0)
                 + int(detection_data.get("Total Length of Bwd Packets", 0) or 0),
             }
 
@@ -258,31 +262,34 @@ class PipelineController:
                 self.recent_detections = self.recent_detections[-100:]
 
         if self.mitigation_agent:
-            self.mitigation_agent.on_detection(detection)
+            try:
+                self.mitigation_agent.on_detection(detection)
+            except Exception as e:
+                logger.error("Mitigation callback error: %s", e)
 
 
 controller = PipelineController()
 
 
-def start_pipeline() -> bool:
+def start_pipeline():
     return controller.start_all()
 
 
-def stop_pipeline() -> bool:
+def stop_pipeline():
     return controller.stop_all()
 
 
-def pipeline_status() -> Dict[str, Any]:
+def pipeline_status():
     return controller.get_status()
 
 
-def is_pipeline_running() -> bool:
+def is_pipeline_running():
     return controller.is_running()
 
 
-def get_recent_detections(limit: int = 20) -> List[Dict[str, Any]]:
+def get_recent_detections(limit=20):
     return controller.get_recent_detections(limit)
 
 
-def get_detection_details(detection_id: str) -> Optional[Dict[str, Any]]:
+def get_detection_details(detection_id):
     return controller.get_detection_details(detection_id)

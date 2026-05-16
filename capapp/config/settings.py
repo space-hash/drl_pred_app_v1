@@ -1,10 +1,14 @@
 # capapp/config/settings.py
+"""
+Centralized configuration for the DDoS detection application.
+All settings loaded from environment variables with sensible defaults.
+"""
 import os
 from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-except ImportError:  # pragma: no cover
+except ImportError:
     load_dotenv = None
 
 
@@ -15,21 +19,21 @@ if load_dotenv is not None:
     load_dotenv(PROJECT_ROOT / ".env")
 
 
-def _get_bool(name: str, default: bool) -> bool:
+def _get_bool(name, default):
     value = os.getenv(name)
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _get_int(name: str, default: int) -> int:
+def _get_int(name, default):
     value = os.getenv(name)
     if value is None:
         return default
     return int(value)
 
 
-def _get_path(name: str, default: Path) -> Path:
+def _get_path(name, default):
     value = os.getenv(name)
     path = Path(value).expanduser() if value is not None else default
     if not path.is_absolute():
@@ -38,9 +42,7 @@ def _get_path(name: str, default: Path) -> Path:
 
 
 class Config:
-    """
-    Centralized configuration for the DDoS detection application.
-    """
+    """Centralized configuration for the DDoS detection application."""
 
     PROJECT_ROOT = PROJECT_ROOT
     CAPAPP_ROOT = CAPAPP_ROOT
@@ -84,13 +86,10 @@ class Config:
     QUEUE_MAXSIZE = _get_int("QUEUE_MAXSIZE", 10)
 
     # Model updater settings
-    MODEL_API_URL = os.getenv(
-        "MODEL_API_URL",
-        "http://127.0.0.1:8000/api/pipeline/model/download",
-    )
+    MODEL_API_URL = os.getenv("MODEL_API_URL", "http://127.0.0.1:8000/api/pipeline/model/download")
     MODEL_UPDATE_INTERVAL_HOURS = _get_int("MODEL_UPDATE_INTERVAL_HOURS", 2)
 
-    # Mitigation agent settings (disabled by default)
+    # Mitigation agent settings
     MITIGATION_ENABLED = _get_bool("MITIGATION_ENABLED", False)
     MITIGATION_AUTO_BLOCK = _get_bool("MITIGATION_AUTO_BLOCK", False)
     MITIGATION_RATE_LIMIT_ENABLED = _get_bool("MITIGATION_RATE_LIMIT_ENABLED", True)
@@ -103,7 +102,6 @@ class Config:
     @classmethod
     def setup_directories(cls):
         """Creates all necessary directories for the pipeline to operate."""
-        import logging
         setup_logger = logging.getLogger("ConfigSetup")
         setup_logger.info("Setting up required directories...")
         for directory in [
@@ -121,4 +119,5 @@ class Config:
         setup_logger.info("Directories are ready.")
 
 
+import logging
 config = Config()
