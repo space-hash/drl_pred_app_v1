@@ -317,7 +317,7 @@
         .main-content {
             flex: 1;
             margin-left: 280px;
-            padding: 28px 32px 60px;
+            padding: 24px 28px 48px;
         }
 
         /* Header */
@@ -325,8 +325,8 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 36px;
-            gap: 20px;
+            margin-bottom: 24px;
+            gap: 16px;
             flex-wrap: wrap;
         }
 
@@ -458,8 +458,8 @@
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-            margin-bottom: 28px;
+            gap: 14px;
+            margin-bottom: 20px;
         }
 
         .stat-card {
@@ -468,7 +468,7 @@
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 24px;
+            padding: 18px 20px;
             transition: var(--transition);
             position: relative;
             overflow: hidden;
@@ -533,7 +533,7 @@
         .stat-icon.danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); }
 
         .stat-value {
-            font-size: 36px;
+            font-size: 32px;
             font-weight: 800;
             letter-spacing: -2px;
             font-family: 'JetBrains Mono', monospace;
@@ -598,9 +598,9 @@
 
         .grid-3 {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 24px;
-            margin-bottom: 24px;
+            grid-template-columns: 3fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
         }
 
         /* Detection Table */
@@ -1144,7 +1144,7 @@
                         </div>
                         <span class="badge badge-info" id="detectionCount">0 total</span>
                     </div>
-                    <div class="table-container">
+                    <div class="table-container" style="max-height: 420px; overflow-y: auto;">
                         <table>
                             <thead>
                                 <tr>
@@ -1171,15 +1171,29 @@
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="card" style="display: flex; flex-direction: column;">
                     <div class="card-header">
                         <div class="card-title">
                             <span>📈</span> Traffic Distribution
                         </div>
                     </div>
-                    <div class="card-body">
-                        <div class="chart-container">
+                    <div class="card-body" style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 16px;">
+                        <div class="chart-container" style="height: 220px; flex-shrink: 0;">
                             <canvas id="detectionChart"></canvas>
+                        </div>
+                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">DDoS</span>
+                                <span class="mono" id="chartDdos" style="color: var(--danger); font-weight: 600;">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Normal</span>
+                                <span class="mono" id="chartNormal" style="color: var(--success); font-weight: 600;">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Suspicious</span>
+                                <span class="mono" id="chartSuspicious" style="color: var(--warning); font-weight: 600;">0</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1195,19 +1209,19 @@
                 </div>
                 <div class="card-body">
                     <!-- Toggles -->
-                    <div class="mitigation-grid" style="margin-bottom: 24px;">
+                    <div class="mitigation-grid" style="margin-bottom: 20px;">
                         <div class="mitigation-item">
                             <div class="mitigation-label">Master Mitigation</div>
                             <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="toggle-switch" id="mitigationToggle" onclick="toggleMitigation()"></div>
-                                <span style="font-size: 13px; color: var(--text-secondary);">Enable all mitigation protocols</span>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Enable all protocols</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
                             <div class="mitigation-label">Rate-Based Auto-Block</div>
                             <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="toggle-switch" id="autoBlockToggle" onclick="toggleAutoBlock()"></div>
-                                <span style="font-size: 13px; color: var(--text-secondary);">Block high-rate IPs automatically</span>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Block high-rate IPs</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
@@ -1218,7 +1232,7 @@
                             <div class="mitigation-label">ML-Based Auto-Block</div>
                             <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="toggle-switch" id="mlAutoBlockToggle" onclick="toggleMlAutoBlock()"></div>
-                                <span style="font-size: 13px; color: var(--text-secondary);">Block after N ML detections</span>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Block after N detections</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
@@ -1235,54 +1249,54 @@
                     </div>
 
                     <!-- Action Buttons -->
-                    <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
                         <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
                         <button class="btn btn-ghost" onclick="clearCounts()">🗑️ Clear Counts</button>
                     </div>
 
                     <!-- IP Management -->
-                    <div class="grid-3">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
                         <div>
-                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">Block IP</h4>
+                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">Block IP</h4>
                             <div class="input-group">
-                                <input type="text" class="input-field" id="blockIpInput" placeholder="Enter IP address">
+                                <input type="text" class="input-field" id="blockIpInput" placeholder="Enter IP">
                                 <button class="btn btn-danger btn-sm" onclick="blockIp()">Block</button>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">Whitelist IP</h4>
+                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">Whitelist IP</h4>
                             <div class="input-group">
-                                <input type="text" class="input-field" id="whitelistIpInput" placeholder="Enter IP address">
-                                <button class="btn btn-primary btn-sm" onclick="whitelistIp()">Whitelist</button>
+                                <input type="text" class="input-field" id="whitelistIpInput" placeholder="Enter IP">
+                                <button class="btn btn-primary btn-sm" onclick="whitelistIp()">Add</button>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Blacklist IP</h4>
+                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Blacklist IP</h4>
                             <div class="input-group">
-                                <input type="text" class="input-field" id="blacklistIpInput" placeholder="Enter IP address">
-                                <button class="btn btn-ghost btn-sm" onclick="blacklistIp()">Blacklist</button>
+                                <input type="text" class="input-field" id="blacklistIpInput" placeholder="Enter IP">
+                                <button class="btn btn-ghost btn-sm" onclick="blacklistIp()">Add</button>
                             </div>
                         </div>
                     </div>
 
                     <!-- IP Lists -->
-                    <div class="grid-3" style="margin-top: 24px;">
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
                         <div>
-                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">🚫 Blocked IPs</h4>
+                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">🚫 Blocked IPs</h4>
                             <div class="ip-list" id="blockedList">
-                                <div class="empty-state" style="padding: 20px;">No blocked IPs</div>
+                                <div class="empty-state" style="padding: 16px;">No blocked IPs</div>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">✅ Whitelist</h4>
+                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">✅ Whitelist</h4>
                             <div class="ip-list" id="whitelistList">
-                                <div class="empty-state" style="padding: 20px;">Empty</div>
+                                <div class="empty-state" style="padding: 16px;">Empty</div>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">⛔ Blacklist</h4>
+                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">⛔ Blacklist</h4>
                             <div class="ip-list" id="blacklistList">
-                                <div class="empty-state" style="padding: 20px;">Empty</div>
+                                <div class="empty-state" style="padding: 16px;">Empty</div>
                             </div>
                         </div>
                     </div>
@@ -1297,26 +1311,26 @@
                     </div>
                 </div>
                 <div class="card-body">
-                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
-                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model</div>
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model</div>
                             <div class="badge badge-normal" id="modelStatus">Not Loaded</div>
                         </div>
-                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Device</div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Device</div>
                             <div class="badge badge-info" id="processingDevice">CPU</div>
                         </div>
-                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Queue Size</div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Queue</div>
                             <div class="badge badge-info" id="queueSize">0</div>
                         </div>
-                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Last Update</div>
-                            <div style="font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="lastUpdate">--:--:--</div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Last Update</div>
+                            <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="lastUpdate">--:--:--</div>
                         </div>
-                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
-                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model Update</div>
-                            <div style="font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="modelLastUpdate">Never</div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model Update</div>
+                            <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="modelLastUpdate">Never</div>
                         </div>
                     </div>
                 </div>
@@ -1447,6 +1461,9 @@
                             data.detection_stats.suspicious || 0
                         ];
                         detectionChart.update();
+                        document.getElementById('chartDdos').textContent = data.detection_stats.ddos || 0;
+                        document.getElementById('chartNormal').textContent = data.detection_stats.normal || 0;
+                        document.getElementById('chartSuspicious').textContent = data.detection_stats.suspicious || 0;
                     }
                 })
                 .catch(err => console.error('Status error:', err));
