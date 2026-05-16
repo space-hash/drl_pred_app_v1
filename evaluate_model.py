@@ -33,9 +33,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from detection_module.detection import (
     EnhancedPPOAgent,
-    EnhancedDDoSEnvironment,
     FLOW_FEATURE_DIM,
-    compute_anomaly_scores,
 )
 
 logging.basicConfig(
