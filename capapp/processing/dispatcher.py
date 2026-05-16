@@ -17,9 +17,17 @@ class FileDispatcher:
         self.feature_extractor = CICFeatureExtractor()
 
     def _find_oldest_file(self):
-        """Finds the oldest file in the capture directory, ignoring subdirectories."""
+        """Finds the oldest file in the capture directory, ignoring subdirectories and incomplete files."""
         try:
-            files = [f for f in config.CAPTURE_DIR.iterdir() if f.is_file()]
+            import time as _time
+            settling_time = 10  # seconds to wait for write completion
+            now = _time.time()
+            files = []
+            for f in config.CAPTURE_DIR.iterdir():
+                if f.is_file() and f.suffix == ".pcap" and not f.name.endswith(".tmp"):
+                    age = now - f.stat().st_mtime
+                    if age >= settling_time:
+                        files.append(f)
             if not files:
                 return None
             return min(files, key=lambda f: f.stat().st_mtime)

@@ -57,7 +57,7 @@ class Config:
     # Flask app settings
     FLASK_HOST = os.getenv("FLASK_HOST", "0.0.0.0")
     FLASK_PORT = _get_int("FLASK_PORT", 5000)
-    FLASK_DEBUG = _get_bool("FLASK_DEBUG", True)
+    FLASK_DEBUG = _get_bool("FLASK_DEBUG", False)
     FLASK_APP_URL = os.getenv("FLASK_APP_URL", f"http://127.0.0.1:{FLASK_PORT}")
 
     # Capture settings
@@ -86,14 +86,23 @@ class Config:
     # Model updater settings
     MODEL_API_URL = os.getenv(
         "MODEL_API_URL",
-        "http://192.168.0.208:8000/api/pipeline/model/download",
+        "http://127.0.0.1:8000/api/pipeline/model/download",
     )
     MODEL_UPDATE_INTERVAL_HOURS = _get_int("MODEL_UPDATE_INTERVAL_HOURS", 2)
+
+    # Mitigation agent settings (disabled by default)
+    MITIGATION_ENABLED = _get_bool("MITIGATION_ENABLED", False)
+    MITIGATION_AUTO_BLOCK = _get_bool("MITIGATION_AUTO_BLOCK", False)
+    MITIGATION_CONFIDENCE_THRESHOLD = float(os.getenv("MITIGATION_CONFIDENCE_THRESHOLD", "0.8"))
+    MITIGATION_DETECTION_COUNT = _get_int("MITIGATION_DETECTION_COUNT", 3)
+    MITIGATION_BLOCK_DURATION_MINUTES = _get_int("MITIGATION_BLOCK_DURATION_MINUTES", 60)
 
     @classmethod
     def setup_directories(cls):
         """Creates all necessary directories for the pipeline to operate."""
-        print("Setting up required directories...")
+        import logging
+        setup_logger = logging.getLogger("ConfigSetup")
+        setup_logger.info("Setting up required directories...")
         for directory in [
             cls.CAPTURE_DIR,
             cls.IN_PROGRESS_DIR,
@@ -106,7 +115,7 @@ class Config:
             cls.PREDICTION_OUTPUT_DIR,
         ]:
             directory.mkdir(parents=True, exist_ok=True)
-        print("Directories are ready.")
+        setup_logger.info("Directories are ready.")
 
 
 config = Config()

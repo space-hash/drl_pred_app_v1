@@ -19,8 +19,9 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 
-# Suppress warnings
-warnings.filterwarnings("ignore")
+# Suppress only specific warnings from this module
+warnings.filterwarnings("ignore", category=UserWarning, module="detection_module")
+warnings.filterwarnings("ignore", category=FutureWarning, module="detection_module")
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +63,13 @@ VAL_CHECK_INTERVAL = 5
 EARLY_STOP_METRIC = 'combined'  # 'combined', 'reward', 'loss'
 
 SEED = 42
-torch.manual_seed(SEED)
-np.random.seed(SEED)
-random.seed(SEED)
+
+
+def set_seed(seed: int = SEED):
+    """Set random seeds for reproducibility. Call explicitly during training."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 class AdaptiveThresholdDetector:
     """Dynamic adaptive threshold detector using EWMA long-short method with combined scores"""

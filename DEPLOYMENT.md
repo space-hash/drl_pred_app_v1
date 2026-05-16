@@ -20,8 +20,12 @@ CAPTURE_INTERFACE=wlp0s20f3
 FLASK_HOST=0.0.0.0
 FLASK_PORT=5000
 FLASK_DEBUG=false
+ROTATE_INTERVAL_SECONDS=10
+DISPATCHER_POLL_INTERVAL_SECONDS=5
 MODEL_PATH=./detection_module/trained_models/final_drl1.pt
 ```
+
+**Note:** `ROTATE_INTERVAL_SECONDS=10` provides near-real-time detection (~15s latency) while avoiding race conditions and pipeline backlogs.
 
 ### 3. Run with Packet Capture Privileges
 ```bash

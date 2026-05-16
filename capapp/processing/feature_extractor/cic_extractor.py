@@ -378,7 +378,7 @@ class CICFeatureExtractor:
     def process_pcap(self, pcap_path: Path) -> Tuple[bool, Optional[Path]]:
         """Public interface to process a single .pcap file."""
         output_filename = f"{pcap_path.stem}_features.csv"
-        output_path = config.FEATURES_DIR / output_filename
+        output_path = config.PROCESSED_FEATURES_DIR / output_filename
 
         try:
             future = self.executor.submit(self._process_pcap_task, pcap_path)
@@ -386,8 +386,7 @@ class CICFeatureExtractor:
 
             if not flow_features:
                 logger.warning(f"No processable flows found in {pcap_path.name}.")
-                output_path.touch()
-                return True, output_path
+                return True, None
 
             with open(output_path, 'w', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=self.FEATURE_NAMES)

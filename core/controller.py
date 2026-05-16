@@ -32,6 +32,19 @@ class PipelineController:
             update_interval_hours=config.MODEL_UPDATE_INTERVAL_HOURS,
         )
 
+        self.mitigation_agent = None
+        if config.MITIGATION_ENABLED:
+            from core.mitigation_agent import MitigationAgent, IPTablesBackend
+            backend = IPTablesBackend() if config.MITIGATION_AUTO_BLOCK else None
+            self.mitigation_agent = MitigationAgent(
+                auto_mitigate=config.MITIGATION_AUTO_BLOCK,
+                confidence_threshold=config.MITIGATION_CONFIDENCE_THRESHOLD,
+                detection_count_threshold=config.MITIGATION_DETECTION_COUNT,
+                block_duration_minutes=config.MITIGATION_BLOCK_DURATION_MINUTES,
+                backend=backend,
+            )
+            logger.info("Mitigation agent initialized")
+
     def initialize_components(self) -> None:
         with self.lock:
             if self.pipeline is None or self.detect is None:
@@ -39,11 +52,11 @@ class PipelineController:
                 self.detect = LocalPredictionPipeline(
                     model_path=self.model_path,
                     processed_dir=str(config.PROCESSED_FEATURES_DIR),
-                    flask_app_url=config.FLASK_APP_URL,
                     output_dir=str(config.PREDICTION_OUTPUT_DIR),
                     queue_maxsize=config.QUEUE_MAXSIZE,
                     force_cpu=config.FORCE_CPU,
                     model_updater=self.model_updater,
+                    detection_callback=self.record_detection,
                 )
                 self._reset_counters()
 
@@ -137,8 +150,8 @@ class PipelineController:
             "suspicious_detections": self.suspicious_count,
             "recent_detections_count": len(self.recent_detections),
             "model_loaded": self.detect is not None and self.detect.model is not None,
-            "queue_size": self.detect.file_queue.qsize() if self.detect else 0,
-            "device": str(self.detect.device) if self.detect else "unknown",
+            "queue_size": getattr(self.detect, "file_queue", None).qsize() if self.detect else 0,
+            "device": str(getattr(self.detect, "device", "unknown")) if self.detect else "unknown",
         }
 
         if self.pipeline and hasattr(self.pipeline, "get_status"):
@@ -159,6 +172,8 @@ class PipelineController:
 
     def record_detection(self, detection_data: Dict[str, Any]) -> None:
         prediction_val = detection_data.get("prediction", 0)
+        confidence = float(detection_data.get("confidence", 0.0) or 0.0)
+
         if isinstance(prediction_val, (int, float)):
             is_ddos = prediction_val == 1
         else:
@@ -181,36 +196,51 @@ class PipelineController:
             except Exception:
                 dst_ip = str(dst_ip)
 
-        detection = {
-            "id": str(uuid.uuid4()),
-            "timestamp": datetime.now().isoformat(),
-            "src_ip": src_ip,
-            "dst_ip": dst_ip,
-            "protocol": detection_data.get("Protocol", "unknown"),
-            "duration": float(detection_data.get("Flow Duration", 0) or 0),
-            "status": "DDoS" if is_ddos else "Normal",
-            "severity": "critical" if is_ddos else "normal",
-            "confidence": float(detection_data.get("confidence", 0.0) or 0.0),
-            "flow_id": detection_data.get("Flow ID", "unknown"),
-            "packets": int(
-                detection_data.get("Total Fwd Packets", 0) or 0
-            )
-            + int(detection_data.get("Total Bwd Packets", 0) or 0),
-            "bytes": int(
-                detection_data.get("Total Length of Fwd Packets", 0) or 0
-            )
-            + int(detection_data.get("Total Length of Bwd Packets", 0) or 0),
-        }
+        if is_ddos and confidence < 0.6:
+            status = "Suspicious"
+            severity = "warning"
+        elif is_ddos:
+            status = "DDoS"
+            severity = "critical"
+        else:
+            status = "Normal"
+            severity = "normal"
 
         with self.lock:
-            if detection["status"] == "DDoS":
+            if status == "DDoS":
                 self.ddos_count += 1
+            elif status == "Suspicious":
+                self.suspicious_count += 1
             else:
                 self.normal_count += 1
+
+            detection = {
+                "id": str(uuid.uuid4()),
+                "timestamp": datetime.now().isoformat(),
+                "src_ip": src_ip,
+                "dst_ip": dst_ip,
+                "protocol": detection_data.get("Protocol", "unknown"),
+                "duration": float(detection_data.get("Flow Duration", 0) or 0),
+                "status": status,
+                "severity": severity,
+                "confidence": confidence,
+                "flow_id": detection_data.get("Flow ID", "unknown"),
+                "packets": int(
+                    detection_data.get("Total Fwd Packets", 0) or 0
+                )
+                + int(detection_data.get("Total Bwd Packets", 0) or 0),
+                "bytes": int(
+                    detection_data.get("Total Length of Fwd Packets", 0) or 0
+                )
+                + int(detection_data.get("Total Length of Bwd Packets", 0) or 0),
+            }
 
             self.recent_detections.append(detection)
             if len(self.recent_detections) > 100:
                 self.recent_detections.pop(0)
+
+        if self.mitigation_agent:
+            self.mitigation_agent.on_detection(detection)
 
 
 controller = PipelineController()

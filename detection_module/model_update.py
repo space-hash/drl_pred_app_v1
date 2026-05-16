@@ -116,11 +116,13 @@ class ModelUpdater:
             logger.info("Periodic update thread already running")
             return
 
+        self.last_update = datetime.now()
+
         def update_loop():
             while not self._stop_event.is_set():
                 try:
                     now = datetime.now()
-                    if not self.last_update or (now - self.last_update) >= self.update_interval:
+                    if (now - self.last_update) >= self.update_interval:
                         self.update_model()
                 except Exception as e:
                     logger.error(f"Error in update loop: {e}")

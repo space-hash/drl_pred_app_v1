@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, redirect, jsonify
 import os
 import sys
 import socket
+import signal
+import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
 from core.controller import (
@@ -155,6 +157,7 @@ def api_receive_predictions():
     data = request.get_json()
     if not data:
         return jsonify({"status": "error", "message": "No data provided"}), 400
+    logger.debug(f"Received prediction data for file: {data.get('filename', 'unknown')}")
     return jsonify({"status": "success", "received": True})
 
 
@@ -163,7 +166,20 @@ def api_receive_raw_data():
     data = request.get_json()
     if not data:
         return jsonify({"status": "error", "message": "No data provided"}), 400
+    logger.debug(f"Received raw data for file: {data.get('filename', 'unknown')}")
     return jsonify({"status": "success", "received": True})
+
+
+def graceful_shutdown(signum, frame):
+    logger = logging.getLogger(__name__)
+    logger.info(f"Received signal {signum}, shutting down gracefully...")
+    if is_pipeline_running():
+        stop_pipeline()
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, graceful_shutdown)
+signal.signal(signal.SIGINT, graceful_shutdown)
 
 
 if __name__ == "__main__":
