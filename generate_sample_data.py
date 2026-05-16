@@ -306,22 +306,134 @@ def generate_ddos_traffic(n: int, rng: np.random.RandomState) -> pd.DataFrame:
     return df
 
 
+def generate_flash_crowd_traffic(n: int, rng: np.random.RandomState) -> pd.DataFrame:
+    """Generate Flash Crowd traffic (high volume but valid behavior).
+
+    Flash crowds look like DDoS (high traffic) but have:
+    - High bidirectional traffic (valid responses)
+    - Valid TCP handshakes (high ACK, low SYN)
+    - Diverse destination IPs (not targeting one server)
+    - Longer flow durations (real users browsing)
+    - Normal packet sizes
+    """
+    data = {
+        "Flow ID": [f"Flash-{i}" for i in range(n)],
+        "Src IP": [generate_ip(rng) for _ in range(n)],
+        "Src Port": rng.randint(1024, 65535, n),
+        "Dst IP": [generate_ip(rng) for _ in range(n)],
+        "Dst Port": rng.choice([80, 443, 8080, 8443], n),
+        "Protocol": rng.choice([6, 17], n, p=[0.85, 0.15]),
+        "Timestamp": [f"2024-01-{rng.randint(1,29):02d} {rng.randint(0,24):02d}:{rng.randint(0,60):02d}:{rng.randint(0,60):02d}" for _ in range(n)],
+        "Flow Duration": rng.exponential(2e6, n),
+        "Total Fwd Packets": rng.poisson(60, n),
+        "Total Bwd Packets": rng.poisson(55, n),
+        "Total Length of Fwd Packets": rng.normal(3000, 800, n).clip(0),
+        "Total Length of Bwd Packets": rng.normal(2500, 700, n).clip(0),
+        "Fwd Packet Length Max": rng.normal(120, 35, n).clip(0),
+        "Fwd Packet Length Min": rng.normal(45, 15, n).clip(0),
+        "Fwd Packet Length Mean": rng.normal(85, 25, n).clip(0),
+        "Fwd Packet Length Std": rng.normal(25, 12, n).clip(0),
+        "Bwd Packet Length Max": rng.normal(110, 30, n).clip(0),
+        "Bwd Packet Length Min": rng.normal(40, 12, n).clip(0),
+        "Bwd Packet Length Mean": rng.normal(75, 20, n).clip(0),
+        "Bwd Packet Length Std": rng.normal(22, 10, n).clip(0),
+        "Flow Bytes/s": rng.normal(30000, 10000, n).clip(0),
+        "Flow Packets/s": rng.normal(200, 80, n).clip(0),
+        "Flow IAT Mean": rng.exponential(5e4, n),
+        "Flow IAT Std": rng.exponential(2e4, n),
+        "Flow IAT Max": rng.exponential(2e5, n),
+        "Flow IAT Min": rng.exponential(500, n),
+        "Fwd IAT Total": rng.exponential(1e5, n),
+        "Fwd IAT Mean": rng.exponential(5e4, n),
+        "Fwd IAT Std": rng.exponential(2e4, n),
+        "Fwd IAT Max": rng.exponential(1.5e5, n),
+        "Fwd IAT Min": rng.exponential(500, n),
+        "Bwd IAT Total": rng.exponential(1e5, n),
+        "Bwd IAT Mean": rng.exponential(5e4, n),
+        "Bwd IAT Std": rng.exponential(2e4, n),
+        "Bwd IAT Max": rng.exponential(1.5e5, n),
+        "Bwd IAT Min": rng.exponential(500, n),
+        "Fwd PSH Flags": rng.poisson(3, n),
+        "Bwd PSH Flags": rng.poisson(3, n),
+        "Fwd URG Flags": np.zeros(n, dtype=int),
+        "Bwd URG Flags": np.zeros(n, dtype=int),
+        "Fwd Header Length": rng.normal(45, 12, n).clip(20),
+        "Bwd Header Length": rng.normal(45, 12, n).clip(20),
+        "Fwd Packets/s": rng.normal(150, 60, n).clip(0),
+        "Bwd Packets/s": rng.normal(140, 55, n).clip(0),
+        "Min Packet Length": rng.normal(45, 15, n).clip(0),
+        "Max Packet Length": rng.normal(130, 40, n).clip(0),
+        "Packet Length Mean": rng.normal(90, 25, n).clip(0),
+        "Packet Length Std": rng.normal(35, 12, n).clip(0),
+        "Packet Length Variance": rng.normal(1200, 500, n).clip(0),
+        "FIN Flag Count": rng.poisson(3, n),
+        "SYN Flag Count": rng.poisson(2, n),
+        "RST Flag Count": rng.poisson(1, n),
+        "PSH Flag Count": rng.poisson(4, n),
+        "ACK Flag Count": rng.poisson(15, n),
+        "URG Flag Count": np.zeros(n, dtype=int),
+        "CWE Flag Count": np.zeros(n, dtype=int),
+        "ECE Flag Count": rng.poisson(1, n),
+        "Down/Up Ratio": rng.uniform(0.7, 1.3, n),
+        "Average Packet Size": rng.normal(90, 25, n).clip(0),
+        "Avg Fwd Segment Size": rng.normal(85, 20, n).clip(0),
+        "Avg Bwd Segment Size": rng.normal(80, 18, n).clip(0),
+        "Fwd Header Length.1": rng.normal(45, 12, n).clip(20),
+        "Fwd Avg Bytes/Bulk": rng.normal(1500, 500, n).clip(0),
+        "Fwd Avg Packets/Bulk": rng.normal(10, 4, n).clip(0),
+        "Fwd Avg Bulk Rate": rng.normal(3000, 1000, n).clip(0),
+        "Bwd Avg Bytes/Bulk": rng.normal(1200, 400, n).clip(0),
+        "Bwd Avg Packets/Bulk": rng.normal(8, 3, n).clip(0),
+        "Bwd Avg Bulk Rate": rng.normal(2500, 800, n).clip(0),
+        "Subflow Fwd Packets": rng.poisson(40, n),
+        "Subflow Fwd Bytes": rng.normal(2000, 600, n).clip(0),
+        "Subflow Bwd Packets": rng.poisson(35, n),
+        "Subflow Bwd Bytes": rng.normal(1800, 500, n).clip(0),
+        "Init_Win_bytes_forward": rng.choice([0, 29200, 65535], n),
+        "Init_Win_bytes_backward": rng.choice([0, 29200, 65535], n),
+        "act_data_pkt_fwd": rng.poisson(20, n),
+        "min_seg_size_forward": rng.normal(45, 10, n).clip(20),
+        "Active Mean": rng.exponential(2e5, n),
+        "Active Std": rng.exponential(1e5, n),
+        "Active Max": rng.exponential(5e5, n),
+        "Active Min": rng.exponential(2e4, n),
+        "Idle Mean": rng.exponential(3e5, n),
+        "Idle Std": rng.exponential(1.5e5, n),
+        "Idle Max": rng.exponential(8e5, n),
+        "Idle Min": rng.exponential(8e4, n),
+    }
+
+    df = pd.DataFrame(data)
+    df["Label"] = "FlashCrowd"
+    return df
+
+
 def generate_dataset(
     n_samples: int = 10000,
     ddos_ratio: float = 0.3,
+    flash_crowd_ratio: float = 0.0,
     seed: int = 42,
 ) -> pd.DataFrame:
-    """Generate a complete dataset with normal and DDoS traffic."""
+    """Generate a complete dataset with normal, DDoS, and optional Flash Crowd traffic."""
     rng = np.random.RandomState(seed)
+
     n_ddos = int(n_samples * ddos_ratio)
-    n_normal = n_samples - n_ddos
+    n_flash = int(n_samples * flash_crowd_ratio)
+    n_normal = n_samples - n_ddos - n_flash
+
+    if n_normal < 0:
+        raise ValueError(f"Ratios too high: ddos={ddos_ratio} + flash={flash_crowd_ratio} > 1.0")
 
     normal_df = generate_normal_traffic(n_normal, rng)
     ddos_df = generate_ddos_traffic(n_ddos, rng)
 
-    df = pd.concat([normal_df, ddos_df], ignore_index=True)
-    df = df.sample(frac=1, random_state=rng).reset_index(drop=True)
+    if n_flash > 0:
+        flash_df = generate_flash_crowd_traffic(n_flash, rng)
+        df = pd.concat([normal_df, ddos_df, flash_df], ignore_index=True)
+    else:
+        df = pd.concat([normal_df, ddos_df], ignore_index=True)
 
+    df = df.sample(frac=1, random_state=rng).reset_index(drop=True)
     return df
 
 
@@ -330,14 +442,15 @@ def main():
     parser.add_argument("--output", type=str, required=True, help="Output CSV file or directory")
     parser.add_argument("--n", type=int, default=10000, help="Number of samples")
     parser.add_argument("--ddos-ratio", type=float, default=0.3, help="DDoS traffic ratio (0-1)")
+    parser.add_argument("--flash-crowd-ratio", type=float, default=0.0, help="Flash Crowd traffic ratio (0-1)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--split", nargs="+", help="Split data: e.g., --split train test")
     parser.add_argument("--train-ratio", type=float, default=0.8, help="Train split ratio")
 
     args = parser.parse_args()
 
-    print(f"Generating {args.n} samples (DDoS ratio: {args.ddos_ratio}, seed: {args.seed})")
-    df = generate_dataset(args.n, args.ddos_ratio, args.seed)
+    print(f"Generating {args.n} samples (DDoS: {args.ddos_ratio:.0%}, Flash Crowd: {args.flash_crowd_ratio:.0%}, seed: {args.seed})")
+    df = generate_dataset(args.n, args.ddos_ratio, args.flash_crowd_ratio, args.seed)
 
     if args.split:
         output_dir = Path(args.output)
@@ -358,7 +471,12 @@ def main():
 
         for name, data in [("Train", train_df), ("Test", test_df)]:
             ddos_count = (data["Label"] == "DDoS").sum()
-            print(f"{name}: {len(data)} samples, {ddos_count} DDoS ({ddos_count/len(data):.1%})")
+            flash_count = (data["Label"] == "FlashCrowd").sum()
+            normal_count = (data["Label"] == "BENIGN").sum()
+            print(f"{name}: {len(data)} samples")
+            print(f"  DDoS: {ddos_count} ({ddos_count/len(data):.1%})")
+            print(f"  Flash Crowd: {flash_count} ({flash_count/len(data):.1%})")
+            print(f"  Normal: {normal_count} ({normal_count/len(data):.1%})")
     else:
         output_path = Path(args.output)
         if output_path.suffix != ".csv":
@@ -369,8 +487,12 @@ def main():
 
         df.to_csv(output_path, index=False)
         ddos_count = (df["Label"] == "DDoS").sum()
+        flash_count = (df["Label"] == "FlashCrowd").sum()
+        normal_count = (df["Label"] == "BENIGN").sum()
         print(f"\nGenerated {len(df)} samples -> {output_path}")
-        print(f"DDoS: {ddos_count} ({ddos_count/len(df):.1%}), Normal: {len(df) - ddos_count}")
+        print(f"DDoS: {ddos_count} ({ddos_count/len(df):.1%})")
+        print(f"Flash Crowd: {flash_count} ({flash_count/len(df):.1%})")
+        print(f"Normal: {normal_count} ({normal_count/len(df):.1%})")
 
     print(f"\nColumns: {len(df.columns)}")
     print(f"Feature columns: {len(FEATURE_COLUMNS)}")

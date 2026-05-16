@@ -61,6 +61,10 @@ Located in `detection_module/trained_models/`:
 
 ### 1. Generate Test Data
 ```bash
+# Generate train/test split with Flash Crowd data (reduces false positives)
+python generate_sample_data.py --output data/ --split train test --n 10000 --flash-crowd-ratio 0.2
+
+# Generate without Flash Crowd (legacy behavior)
 python generate_sample_data.py --output data/ --split train test --n 10000
 ```
 
