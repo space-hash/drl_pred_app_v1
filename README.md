@@ -26,6 +26,7 @@ This project captures live network traffic, rotates it into `.pcap` files, extra
 │   ├── config/
 │   ├── orchestration/
 │   ├── processing/
+│   │   └── feature_extractor/
 │   ├── storage/
 │   └── utils/
 ├── detection_module/             # DRL model inference and model updater
@@ -35,6 +36,14 @@ This project captures live network traffic, rotates it into `.pcap` files, extra
 │   └── trained_models/
 ├── data/predictions/             # Generated prediction CSV output
 ├── templates/                    # Flask HTML templates
+├── train.py                      # Model training script
+├── evaluate_model.py             # Model evaluation & validation
+├── compare_models.py             # Model comparison utility
+├── model_manager.py              # Model lifecycle management
+├── generate_sample_data.py       # Synthetic data generator
+├── add_model_metadata.py         # Add metadata to existing models
+├── MODEL.md                      # Detailed model documentation
+├── setup.sh                      # Automated setup script
 └── requirements.txt
 ```
 
@@ -49,11 +58,20 @@ Python dependencies are listed in [requirements.txt](requirements.txt).
 
 ## Setup
 
+### Quick Setup (Recommended)
+
+```bash
+chmod +x setup.sh
+./setup.sh
+```
+
+### Manual Setup
+
 ### 1. Clone the repository
 
 ```bash
 git clone <your-repo-url>
-cd drl_app-detect
+cd drl_pred_app_v1
 ```
 
 ### 2. Create a virtual environment
@@ -118,13 +136,6 @@ If the configured interface is unavailable, the code attempts to auto-select the
 - Keep your real `.env` local only. It is ignored by Git.
 - Centralized config now lives in [capapp/config/settings.py](capapp/config/settings.py).
 
-### What was improved
-
-- Hardcoded absolute paths were removed from the controller.
-- The model updater URL is now environment-driven.
-- Flask host, port, and debug mode are configurable.
-- Prediction, feature, and model paths now come from `.env`.
-
 ## How To Run
 
 ### Run the Flask dashboard
@@ -151,12 +162,69 @@ curl -X POST http://127.0.0.1:5000/stop
 
 ## API Endpoints
 
-- `GET /api/status` - current pipeline status
-- `GET /api/detections` - recent detections
-- `GET /api/detections/<detection_id>` - details for one detection
-- `GET /api/stats` - detection counters and throughput
-- `GET /api/model_status` - current model update status
-- `POST /api/update_model` - trigger a model download/update
+- `GET /` - Dashboard UI
+- `POST /start` - Start detection pipeline
+- `POST /stop` - Stop detection pipeline
+- `GET /api/status` - Current pipeline status
+- `GET /api/detections` - Recent detections (with pagination)
+- `GET /api/detections/<detection_id>` - Details for one detection
+- `GET /api/stats` - Detection counters and throughput
+- `GET /api/model_status` - Current model update status
+- `POST /api/update_model` - Trigger a model download/update
+- `POST /api/data` - Receive prediction results (internal)
+- `POST /raw_data` - Receive raw feature data (internal)
+
+## Model Management
+
+See [MODEL.md](MODEL.md) for detailed model documentation.
+
+### Generate Sample Data
+
+```bash
+# Generate train/test split
+python generate_sample_data.py --output data/ --split train test --n 10000
+```
+
+### Train a New Model
+
+```bash
+# With synthetic data (testing)
+python train.py --auto-generate --n-samples 10000 --epochs 100 --output detection_module/trained_models/my_model.pt
+
+# With real CICFlowMeter CSV
+python train.py --data data/train.csv --epochs 500 --output detection_module/trained_models/my_model.pt
+
+# List all models
+python train.py --list-models
+```
+
+### Evaluate a Model
+
+```bash
+# With synthetic data + full report
+python evaluate_model.py --model detection_module/trained_models/final_drl1.pt --auto-generate --report
+
+# With real data + benchmark
+python evaluate_model.py --model detection_module/trained_models/final_drl1.pt --data data/test.csv --benchmark --report
+
+# Save results to JSON
+python evaluate_model.py --model detection_module/trained_models/final_drl1.pt --auto-generate --output results/eval.json
+```
+
+### Compare Models
+
+```bash
+python compare_models.py detection_module/trained_models/*.pt --auto-generate --benchmark
+```
+
+### Manage Models
+
+```bash
+python model_manager.py list detection_module/trained_models/ -v
+python model_manager.py validate detection_module/trained_models/final_drl1.pt
+python model_manager.py info detection_module/trained_models/final_drl1.pt
+python model_manager.py cleanup detection_module/trained_models/ --keep 3 --dry-run
+```
 
 ## Generated Runtime Directories
 
@@ -171,8 +239,7 @@ These directories are expected to change while the system runs and are now ignor
 
 - This project is designed for Linux-style packet capture and may not work on Windows without major changes.
 - The model updater depends on a reachable remote API endpoint.
-- The repository currently contains both inference code and packet-processing code in one app, so deployment should be treated as a development setup unless you harden configuration and networking.
-- The file [config.py](config.py) is currently empty and appears unused.
+- The repository contains both inference code and packet-processing code in one app, so deployment should be treated as a development setup unless you harden configuration and networking.
 - `.env` is loaded only if `python-dotenv` is installed, which is now included in [requirements.txt](requirements.txt).
 
 ## Troubleshooting
@@ -191,6 +258,12 @@ Run with `sudo` or grant the Python binary `cap_net_raw` and `cap_net_admin`.
 
 - Confirm the machine can reach the `MODEL_API_URL` configured in `.env`.
 - Verify the downloaded model matches the expected format used by `EnhancedPPOAgent.load_model(...)`.
+
+### Model fails to load
+
+```bash
+python model_manager.py validate detection_module/trained_models/final_drl1.pt
+```
 
 ## Development Cleanup
 

@@ -20,10 +20,8 @@ from sklearn.metrics import confusion_matrix
 import seaborn as sns
 
 # Suppress warnings
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -544,7 +542,6 @@ class EnhancedPPOAgent:
         self.episodes_without_improvement = 0
         self.best_model_state = None
         self.best_val_model_state = None
-        self.early_stop_patience = EARLY_STOP_PATIENCE
         self.early_stop_warmup = EARLY_STOP_WARMUP
         self.early_stop_min_improvement = EARLY_STOP_MIN_IMPROVEMENT
         self.early_stop_metric = EARLY_STOP_METRIC  # 'combined', 'reward', 'loss'

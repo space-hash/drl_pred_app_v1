@@ -57,6 +57,14 @@ capapp/capture_output/
 capapp/features_output/
 capapp/logs/
 data/predictions/
+data/*.csv
 capapp/data/
 *.pcap
 detection_module/trained_models/*.bak.*
+
+# Generated evaluation results
+results/
+*.png
+training_results.png
+final_confusion_matrix.png
+threshold_evolution.png
