@@ -3,58 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetShield DDoS Detection</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://unpkg.com/lucide-static@latest/font/lucide.css" rel="stylesheet">
+    <title>CYBERSHIELD // DDoS Threat Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0a0a0f;
-            --bg-secondary: #12121a;
-            --bg-tertiary: #1a1a24;
-            --bg-card: #16161f;
-            --border: #2a2a3a;
-            --border-hover: #3a3a4a;
-            --text-primary: #e8e8f0;
-            --text-secondary: #9898a8;
-            --text-muted: #686878;
+            --bg-deep: #030308;
+            --bg-primary: #06060f;
+            --bg-secondary: #0a0a18;
+            --bg-card: rgba(12, 12, 30, 0.6);
+            --bg-glass: rgba(15, 15, 35, 0.4);
+            --border: rgba(99, 102, 241, 0.15);
+            --border-hover: rgba(99, 102, 241, 0.4);
+            --text-primary: #f0f0ff;
+            --text-secondary: #a0a0c0;
+            --text-muted: #5a5a7a;
             --accent: #6366f1;
-            --accent-hover: #818cf8;
-            --accent-glow: rgba(99, 102, 241, 0.3);
+            --accent-glow: rgba(99, 102, 241, 0.5);
+            --accent-cyan: #06b6d4;
+            --accent-cyan-glow: rgba(6, 182, 212, 0.5);
+            --accent-purple: #a855f7;
+            --accent-purple-glow: rgba(168, 85, 247, 0.5);
             --success: #10b981;
-            --success-bg: rgba(16, 185, 129, 0.1);
+            --success-glow: rgba(16, 185, 129, 0.4);
             --warning: #f59e0b;
-            --warning-bg: rgba(245, 158, 11, 0.1);
+            --warning-glow: rgba(245, 158, 11, 0.4);
             --danger: #ef4444;
-            --danger-bg: rgba(239, 68, 68, 0.1);
-            --info: #3b82f6;
-            --info-bg: rgba(59, 130, 246, 0.1);
-            --radius: 12px;
-            --radius-lg: 16px;
-            --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-            --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.5);
-            --transition: all 0.2s ease;
+            --danger-glow: rgba(239, 68, 68, 0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: var(--bg-primary);
+            font-family: 'Inter', 'Space Grotesk', sans-serif;
+            background: var(--bg-deep);
             color: var(--text-primary);
-            line-height: 1.5;
+            line-height: 1.6;
             overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Animated Background Grid */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        /* Ambient Glow Orbs */
+        .glow-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            z-index: 0;
+            animation: orbFloat 15s ease-in-out infinite alternate;
+        }
+
+        .glow-orb-1 {
+            width: 600px;
+            height: 600px;
+            background: var(--accent);
+            top: -200px;
+            right: -200px;
+        }
+
+        .glow-orb-2 {
+            width: 500px;
+            height: 500px;
+            background: var(--accent-cyan);
+            bottom: -150px;
+            left: -150px;
+            animation-delay: -5s;
+        }
+
+        .glow-orb-3 {
+            width: 400px;
+            height: 400px;
+            background: var(--accent-purple);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -10s;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        /* Scanline Effect */
+        .scanline {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
         }
 
         /* Layout */
         .app-layout {
             display: flex;
             min-height: 100vh;
+            position: relative;
+            z-index: 2;
         }
 
         /* Sidebar */
         .sidebar {
-            width: 260px;
-            background: var(--bg-secondary);
+            width: 280px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-right: 1px solid var(--border);
             padding: 24px 16px;
             display: flex;
@@ -62,95 +146,148 @@
             position: fixed;
             height: 100vh;
             z-index: 100;
+            overflow-y: auto;
         }
 
         .logo {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
             padding: 0 8px 24px;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
         .logo-icon {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--accent), #8b5cf6);
-            border-radius: 10px;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
+            box-shadow: 0 0 20px var(--accent-glow);
+            animation: logoPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+            50% { box-shadow: 0 0 40px var(--accent-glow), 0 0 60px rgba(99, 102, 241, 0.2); }
         }
 
         .logo-text {
-            font-size: 18px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px;
             font-weight: 700;
             letter-spacing: -0.5px;
         }
 
         .logo-text span {
-            color: var(--accent);
+            background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-subtitle {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            margin-top: 2px;
         }
 
         .nav-section {
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
         .nav-label {
-            font-size: 11px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 2px;
             color: var(--text-muted);
             padding: 0 12px;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .nav-item {
             display: flex;
             align-items: center;
             gap: 12px;
-            padding: 10px 12px;
-            border-radius: 8px;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
             color: var(--text-secondary);
             cursor: pointer;
             transition: var(--transition);
             font-size: 14px;
             font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--accent);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
         }
 
         .nav-item:hover {
-            background: var(--bg-tertiary);
+            background: rgba(99, 102, 241, 0.1);
             color: var(--text-primary);
         }
 
-        .nav-item.active {
-            background: var(--accent);
-            color: white;
+        .nav-item:hover::before {
+            transform: scaleY(1);
         }
 
-        .nav-item i {
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent);
+        }
+
+        .nav-item.active::before {
+            transform: scaleY(1);
+        }
+
+        .nav-icon {
             width: 20px;
             height: 20px;
-            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
         }
 
         .sidebar-footer {
             margin-top: auto;
-            padding: 16px 8px;
+            padding: 20px 8px;
             border-top: 1px solid var(--border);
         }
 
         .status-badge {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
+            gap: 10px;
+            padding: 12px 14px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             font-size: 13px;
+            transition: var(--transition);
+        }
+
+        .status-badge.active {
+            border-color: var(--success);
+            box-shadow: 0 0 15px var(--success-glow);
         }
 
         .status-dot {
@@ -158,92 +295,163 @@
             height: 8px;
             border-radius: 50%;
             background: var(--text-muted);
+            transition: var(--transition);
         }
 
         .status-dot.active {
             background: var(--success);
-            box-shadow: 0 0 8px var(--success);
+            box-shadow: 0 0 12px var(--success);
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .status-text {
+            font-weight: 500;
         }
 
         /* Main Content */
         .main-content {
             flex: 1;
-            margin-left: 260px;
-            padding: 24px 32px;
+            margin-left: 280px;
+            padding: 28px 32px 60px;
         }
 
+        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 32px;
+            align-items: flex-start;
+            margin-bottom: 36px;
+            gap: 20px;
+            flex-wrap: wrap;
         }
 
-        .header h1 {
-            font-size: 24px;
+        .header-left h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
             font-weight: 700;
-            letter-spacing: -0.5px;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-left p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .header-actions {
             display: flex;
             gap: 12px;
             align-items: center;
+            flex-wrap: wrap;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 20px;
-            border-radius: 8px;
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
             font-size: 14px;
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
             transition: var(--transition);
             border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn:hover::after {
+            opacity: 1;
         }
 
         .btn-primary {
-            background: var(--accent);
+            background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
             color: white;
+            box-shadow: 0 4px 20px var(--accent-glow);
         }
 
         .btn-primary:hover {
-            background: var(--accent-hover);
-            box-shadow: 0 0 20px var(--accent-glow);
+            box-shadow: 0 8px 30px var(--accent-glow);
+            transform: translateY(-2px);
         }
 
         .btn-danger {
-            background: var(--danger);
+            background: linear-gradient(135deg, var(--danger), #dc2626);
             color: white;
+            box-shadow: 0 4px 20px var(--danger-glow);
         }
 
         .btn-danger:hover {
-            background: #dc2626;
+            box-shadow: 0 8px 30px var(--danger-glow);
+            transform: translateY(-2px);
         }
 
         .btn-ghost {
-            background: transparent;
+            background: var(--bg-glass);
             color: var(--text-secondary);
             border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
         }
 
         .btn-ghost:hover {
-            background: var(--bg-tertiary);
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--border-hover);
             color: var(--text-primary);
         }
 
         .btn:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Privilege Warning */
+        .privilege-warning {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: var(--warning);
+            backdrop-filter: blur(10px);
+            animation: warningPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes warningPulse {
+            0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+            50% { border-color: rgba(245, 158, 11, 0.6); }
+        }
+
+        .privilege-warning code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-primary);
         }
 
         /* Stats Grid */
@@ -251,69 +459,111 @@
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 28px;
         }
 
         .stat-card {
             background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 20px;
+            padding: 24px;
             transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
         .stat-card:hover {
             border-color: var(--border-hover);
-            transform: translateY(-2px);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
         }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card.danger:hover { box-shadow: 0 12px 40px var(--danger-glow); }
+        .stat-card.success:hover { box-shadow: 0 12px 40px var(--success-glow); }
+        .stat-card.warning:hover { box-shadow: 0 12px 40px var(--warning-glow); }
 
         .stat-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 16px;
         }
 
         .stat-label {
             font-size: 13px;
             font-weight: 500;
             color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .stat-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 8px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 20px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
         }
 
-        .stat-icon.info { background: var(--info-bg); color: var(--info); }
-        .stat-icon.success { background: var(--success-bg); color: var(--success); }
-        .stat-icon.warning { background: var(--warning-bg); color: var(--warning); }
-        .stat-icon.danger { background: var(--danger-bg); color: var(--danger); }
+        .stat-icon.info { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); }
+        .stat-icon.success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); }
+        .stat-icon.warning { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
+        .stat-icon.danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); }
 
         .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            letter-spacing: -1px;
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -2px;
             font-family: 'JetBrains Mono', monospace;
+            line-height: 1;
         }
+
+        .stat-value.danger { color: var(--danger); text-shadow: 0 0 20px var(--danger-glow); }
+        .stat-value.success { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
+        .stat-value.warning { color: var(--warning); text-shadow: 0 0 20px var(--warning-glow); }
 
         .stat-change {
             font-size: 12px;
             color: var(--text-muted);
-            margin-top: 4px;
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         /* Cards */
         .card {
             background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
+            border-radius: var(--radius);
             overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
         }
 
         .card-header {
@@ -322,6 +572,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: rgba(99, 102, 241, 0.03);
         }
 
         .card-title {
@@ -329,7 +580,8 @@
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            font-family: 'Space Grotesk', sans-serif;
         }
 
         .card-body {
@@ -363,28 +615,30 @@
 
         th {
             text-align: left;
-            padding: 12px 16px;
-            font-size: 12px;
-            font-weight: 600;
+            padding: 14px 16px;
+            font-size: 11px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 1.5px;
             color: var(--text-muted);
             border-bottom: 1px solid var(--border);
-            background: var(--bg-tertiary);
+            background: rgba(0, 0, 0, 0.2);
+            font-family: 'JetBrains Mono', monospace;
         }
 
         td {
-            padding: 14px 16px;
+            padding: 16px;
             font-size: 14px;
             border-bottom: 1px solid var(--border);
+            transition: var(--transition);
         }
 
-        tr:last-child td {
-            border-bottom: none;
+        tr {
+            transition: var(--transition);
         }
 
         tr:hover td {
-            background: var(--bg-tertiary);
+            background: rgba(99, 102, 241, 0.05);
         }
 
         .mono {
@@ -397,30 +651,37 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 4px 10px;
+            padding: 6px 12px;
             border-radius: 20px;
             font-size: 12px;
             font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.5px;
         }
 
         .badge-critical {
-            background: var(--danger-bg);
+            background: rgba(239, 68, 68, 0.15);
             color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
         }
 
         .badge-warning {
-            background: var(--warning-bg);
+            background: rgba(245, 158, 11, 0.15);
             color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
         .badge-normal {
-            background: var(--success-bg);
+            background: rgba(16, 185, 129, 0.15);
             color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
 
         .badge-info {
-            background: var(--info-bg);
+            background: rgba(59, 130, 246, 0.15);
             color: var(--info);
+            border: 1px solid rgba(59, 130, 246, 0.3);
         }
 
         .badge-dot {
@@ -428,6 +689,7 @@
             height: 6px;
             border-radius: 50%;
             background: currentColor;
+            animation: pulse 2s infinite;
         }
 
         /* Mitigation Panel */
@@ -438,55 +700,64 @@
         }
 
         .mitigation-item {
-            background: var(--bg-tertiary);
+            background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
+            border-radius: var(--radius-sm);
+            padding: 18px;
+            transition: var(--transition);
+        }
+
+        .mitigation-item:hover {
+            border-color: var(--border-hover);
         }
 
         .mitigation-label {
-            font-size: 13px;
-            font-weight: 500;
+            font-size: 12px;
+            font-weight: 600;
             color: var(--text-secondary);
-            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
         }
 
         .toggle-switch {
             position: relative;
-            width: 44px;
-            height: 24px;
+            width: 48px;
+            height: 26px;
             background: var(--border);
-            border-radius: 12px;
+            border-radius: 13px;
             cursor: pointer;
             transition: var(--transition);
         }
 
         .toggle-switch.active {
             background: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
         }
 
         .toggle-switch::after {
             content: '';
             position: absolute;
-            top: 2px;
-            left: 2px;
+            top: 3px;
+            left: 3px;
             width: 20px;
             height: 20px;
             background: white;
             border-radius: 50%;
             transition: var(--transition);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .toggle-switch.active::after {
-            left: 22px;
+            left: 25px;
         }
 
         .input-field {
             width: 100%;
-            padding: 10px 14px;
-            background: var(--bg-primary);
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             color: var(--text-primary);
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
@@ -501,20 +772,16 @@
 
         .input-group {
             display: flex;
-            gap: 8px;
+            gap: 10px;
         }
 
         .input-group .input-field {
             flex: 1;
         }
 
-        .input-group .btn {
-            white-space: nowrap;
-        }
-
         /* IP Lists */
         .ip-list {
-            max-height: 200px;
+            max-height: 220px;
             overflow-y: auto;
         }
 
@@ -522,15 +789,17 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 12px;
-            background: var(--bg-primary);
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.2);
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             margin-bottom: 8px;
+            transition: var(--transition);
         }
 
-        .ip-item:last-child {
-            margin-bottom: 0;
+        .ip-item:hover {
+            border-color: var(--border-hover);
+            background: rgba(99, 102, 241, 0.05);
         }
 
         .ip-info {
@@ -552,7 +821,7 @@
 
         .ip-actions {
             display: flex;
-            gap: 8px;
+            gap: 10px;
             align-items: center;
         }
 
@@ -560,18 +829,19 @@
             font-size: 12px;
             color: var(--warning);
             font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
         }
 
         .btn-sm {
-            padding: 6px 12px;
+            padding: 8px 14px;
             font-size: 12px;
-            border-radius: 6px;
+            border-radius: 8px;
         }
 
         /* Chart Container */
         .chart-container {
             position: relative;
-            height: 250px;
+            height: 280px;
         }
 
         /* Toast */
@@ -582,18 +852,23 @@
             z-index: 1000;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
 
         .toast {
-            padding: 12px 20px;
+            padding: 14px 22px;
             background: var(--bg-card);
+            backdrop-filter: blur(20px);
             border: 1px solid var(--border);
-            border-radius: 8px;
+            border-radius: var(--radius-sm);
             font-size: 14px;
-            box-shadow: var(--shadow-lg);
-            animation: slideIn 0.3s ease;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Space Grotesk', sans-serif;
         }
+
+        .toast.success { border-color: var(--success); box-shadow: 0 0 20px var(--success-glow); }
+        .toast.error { border-color: var(--danger); box-shadow: 0 0 20px var(--danger-glow); }
 
         @keyframes slideIn {
             from { transform: translateX(100%); opacity: 0; }
@@ -603,13 +878,12 @@
         /* Empty State */
         .empty-state {
             text-align: center;
-            padding: 40px 20px;
+            padding: 48px 20px;
             color: var(--text-muted);
         }
 
-        .empty-state svg {
-            width: 48px;
-            height: 48px;
+        .empty-state-icon {
+            font-size: 48px;
             margin-bottom: 16px;
             opacity: 0.3;
         }
@@ -631,6 +905,7 @@
             .main-content { margin-left: 0; padding: 16px; }
             .stats-grid { grid-template-columns: 1fr; }
             .mitigation-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; }
         }
 
         /* Loading spinner */
@@ -647,65 +922,143 @@
             to { transform: rotate(360deg); }
         }
 
-        /* Privilege warning */
-        .privilege-warning {
-            background: var(--warning-bg);
-            border: 1px solid var(--warning);
-            border-radius: var(--radius);
-            padding: 16px 20px;
-            margin-bottom: 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--warning);
-        }
-
-        .privilege-warning code {
-            background: var(--bg-primary);
-            padding: 2px 8px;
-            border-radius: 4px;
+        /* Terminal-style status bar */
+        .terminal-bar {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
             font-family: 'JetBrains Mono', monospace;
             font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
+
+        .terminal-bar .prompt {
+            color: var(--accent);
+        }
+
+        .terminal-bar .value {
+            color: var(--success);
+        }
+
+        /* Glitch text effect for headings */
+        .glitch-text {
+            position: relative;
+        }
+
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+        }
+
+        .glitch-text:hover::before {
+            animation: glitch-1 0.3s linear;
+            color: var(--accent-cyan);
+            opacity: 0.8;
+        }
+
+        .glitch-text:hover::after {
+            animation: glitch-2 0.3s linear;
+            color: var(--accent-purple);
+            opacity: 0.8;
+        }
+
+        @keyframes glitch-1 {
+            0% { clip-path: inset(20% 0 60% 0); transform: translate(-2px, 2px); }
+            20% { clip-path: inset(60% 0 10% 0); transform: translate(2px, -2px); }
+            40% { clip-path: inset(40% 0 30% 0); transform: translate(-2px, 2px); }
+            60% { clip-path: inset(80% 0 5% 0); transform: translate(2px, -2px); }
+            80% { clip-path: inset(10% 0 70% 0); transform: translate(-2px, 2px); }
+            100% { clip-path: inset(50% 0 30% 0); transform: translate(2px, -2px); }
+        }
+
+        @keyframes glitch-2 {
+            0% { clip-path: inset(60% 0 20% 0); transform: translate(2px, -2px); }
+            20% { clip-path: inset(10% 0 60% 0); transform: translate(-2px, 2px); }
+            40% { clip-path: inset(30% 0 40% 0); transform: translate(2px, -2px); }
+            60% { clip-path: inset(5% 0 80% 0); transform: translate(-2px, 2px); }
+            80% { clip-path: inset(70% 0 10% 0); transform: translate(2px, -2px); }
+            100% { clip-path: inset(30% 0 50% 0); transform: translate(-2px, 2px); }
+        }
+
+        /* Fade-in animation for page load */
+        .fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in-delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .fade-in-delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .fade-in-delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .fade-in-delay-4 { animation-delay: 0.4s; opacity: 0; }
     </style>
 </head>
 <body>
+    <!-- Background Effects -->
+    <div class="bg-grid"></div>
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+    <div class="scanline"></div>
+
     <div class="app-layout">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="logo">
                 <div class="logo-icon">🛡️</div>
-                <div class="logo-text">Net<span>Shield</span></div>
+                <div>
+                    <div class="logo-text">CYBER<span>SHIELD</span></div>
+                    <div class="logo-subtitle">Threat Intelligence</div>
+                </div>
             </div>
 
             <nav>
                 <div class="nav-section">
                     <div class="nav-label">Monitoring</div>
                     <div class="nav-item active" onclick="scrollToSection('dashboard')">
-                        <span>📊</span> Dashboard
+                        <span class="nav-icon">📊</span> Dashboard
                     </div>
                     <div class="nav-item" onclick="scrollToSection('detections')">
-                        <span>🔍</span> Detections
+                        <span class="nav-icon">🔍</span> Detections
                     </div>
                     <div class="nav-item" onclick="scrollToSection('mitigation')">
-                        <span>🛡️</span> Mitigation
+                        <span class="nav-icon">🛡️</span> Mitigation
                     </div>
                 </div>
                 <div class="nav-section">
                     <div class="nav-label">System</div>
                     <div class="nav-item" onclick="scrollToSection('pipeline')">
-                        <span>⚡</span> Pipeline
+                        <span class="nav-icon">⚡</span> Pipeline
                     </div>
                     <div class="nav-item" onclick="updateModel()">
-                        <span>🔄</span> Update Model
+                        <span class="nav-icon">🔄</span> Update Model
                     </div>
                 </div>
             </nav>
 
             <div class="sidebar-footer">
-                <div class="status-badge">
+                <div class="status-badge" id="statusBadge">
                     <div class="status-dot" id="statusDot"></div>
-                    <span id="statusText">Pipeline Stopped</span>
+                    <span class="status-text" id="statusText">Pipeline Offline</span>
+                </div>
+                <div class="terminal-bar">
+                    <span class="prompt">$</span>
+                    <span>status:</span>
+                    <span class="value" id="terminalStatus">idle</span>
                 </div>
             </div>
         </aside>
@@ -713,31 +1066,31 @@
         <!-- Main Content -->
         <main class="main-content">
             <!-- Header -->
-            <div class="header">
-                <div>
-                    <h1>DDoS Detection Dashboard</h1>
-                    <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Real-time network threat monitoring and mitigation</p>
+            <div class="header fade-in">
+                <div class="header-left">
+                    <h1 class="glitch-text" data-text="DDoS Threat Intelligence">DDoS Threat Intelligence</h1>
+                    <p>real-time network threat monitoring & mitigation system</p>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-ghost" onclick="updateModel()" id="updateModelBtn">
                         <span>🔄</span> Update Model
                     </button>
                     <form action="/start" method="post" style="display: inline;">
-                        <button type="submit" class="btn btn-primary" id="startBtn" {% if is_running %}disabled{% endif %}>
-                            <span>▶️</span> Start Detection
+                        <button type="submit" class="btn btn-primary" id="startBtn">
+                            <span>▶</span> Start Detection
                         </button>
                     </form>
                     <form action="/stop" method="post" style="display: inline;">
-                        <button type="submit" class="btn btn-danger" id="stopBtn" {% if not is_running %}disabled{% endif %}>
-                            <span>⏹️</span> Stop Detection
+                        <button type="submit" class="btn btn-danger" id="stopBtn">
+                            <span>⏹</span> Stop Detection
                         </button>
                     </form>
                 </div>
             </div>
 
             {% if not has_privileges %}
-            <div class="privilege-warning">
-                <span>⚠️</span>
+            <div class="privilege-warning fade-in fade-in-delay-1">
+                <span style="font-size: 20px;">⚠️</span>
                 <div>
                     <strong>Insufficient privileges for packet capture.</strong>
                     Run with <code>sudo python3 app.py</code> or
@@ -747,43 +1100,43 @@
             {% endif %}
 
             <!-- Stats Grid -->
-            <div class="stats-grid" id="dashboard">
+            <div class="stats-grid fade-in fade-in-delay-2" id="dashboard">
                 <div class="stat-card">
                     <div class="stat-header">
                         <span class="stat-label">Processed Files</span>
                         <div class="stat-icon info">📁</div>
                     </div>
                     <div class="stat-value" id="processedFiles">0</div>
-                    <div class="stat-change">Feature files analyzed</div>
+                    <div class="stat-change">feature files analyzed</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card danger">
                     <div class="stat-header">
                         <span class="stat-label">DDoS Detections</span>
                         <div class="stat-icon danger">🚨</div>
                     </div>
-                    <div class="stat-value" id="ddosDetections" style="color: var(--danger);">0</div>
-                    <div class="stat-change">Threats identified</div>
+                    <div class="stat-value danger" id="ddosDetections">0</div>
+                    <div class="stat-change">threats identified</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card success">
                     <div class="stat-header">
                         <span class="stat-label">Normal Traffic</span>
                         <div class="stat-icon success">✅</div>
                     </div>
-                    <div class="stat-value" id="normalDetections" style="color: var(--success);">0</div>
-                    <div class="stat-change">Legitimate flows</div>
+                    <div class="stat-value success" id="normalDetections">0</div>
+                    <div class="stat-change">legitimate flows</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card warning">
                     <div class="stat-header">
                         <span class="stat-label">Failed Files</span>
                         <div class="stat-icon warning">⚠️</div>
                     </div>
-                    <div class="stat-value" id="failedFiles" style="color: var(--warning);">0</div>
-                    <div class="stat-change">Processing errors</div>
+                    <div class="stat-value warning" id="failedFiles">0</div>
+                    <div class="stat-change">processing errors</div>
                 </div>
             </div>
 
             <!-- Detections & Chart -->
-            <div class="grid-3" id="detections">
+            <div class="grid-3 fade-in fade-in-delay-3" id="detections">
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title">
@@ -806,8 +1159,11 @@
                             </thead>
                             <tbody id="resultsBody">
                                 <tr>
-                                    <td colspan="7" class="empty-state">
-                                        <div>No detections yet. Start the pipeline to begin monitoring.</div>
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">📡</div>
+                                            <div>No detections yet. Start the pipeline to begin monitoring.</div>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -830,28 +1186,28 @@
             </div>
 
             <!-- Mitigation Control -->
-            <div class="card" id="mitigation">
+            <div class="card fade-in fade-in-delay-4" id="mitigation">
                 <div class="card-header">
                     <div class="card-title">
                         <span>🛡️</span> Mitigation Control
                     </div>
-                    <span class="badge badge-info" id="blockedCount">0 IPs Blocked</span>
+                    <span class="badge badge-critical" id="blockedCount">0 IPs Blocked</span>
                 </div>
                 <div class="card-body">
                     <!-- Toggles -->
                     <div class="mitigation-grid" style="margin-bottom: 24px;">
                         <div class="mitigation-item">
                             <div class="mitigation-label">Master Mitigation</div>
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="toggle-switch" id="mitigationToggle" onclick="toggleMitigation()"></div>
-                                <span style="font-size: 13px; color: var(--text-secondary);">Enable all mitigation</span>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Enable all mitigation protocols</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
                             <div class="mitigation-label">Rate-Based Auto-Block</div>
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="toggle-switch" id="autoBlockToggle" onclick="toggleAutoBlock()"></div>
-                                <span style="font-size: 13px; color: var(--text-secondary);">Block high-rate IPs</span>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Block high-rate IPs automatically</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
@@ -860,16 +1216,16 @@
                         </div>
                         <div class="mitigation-item">
                             <div class="mitigation-label">ML-Based Auto-Block</div>
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="toggle-switch" id="mlAutoBlockToggle" onclick="toggleMlAutoBlock()"></div>
-                                <span style="font-size: 13px; color: var(--text-secondary);">Block after N detections</span>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Block after N ML detections</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
                             <div class="mitigation-label">ML Confidence Threshold</div>
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; align-items: center; gap: 14px;">
                                 <input type="range" class="input-field" id="confidenceSlider" min="0" max="1" step="0.1" value="0.8" style="flex:1;" oninput="document.getElementById('confVal').textContent=this.value">
-                                <span id="confVal" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; min-width: 30px;">0.8</span>
+                                <span id="confVal" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; min-width: 30px; color: var(--accent);">0.8</span>
                             </div>
                         </div>
                         <div class="mitigation-item">
@@ -887,21 +1243,21 @@
                     <!-- IP Management -->
                     <div class="grid-3">
                         <div>
-                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Block IP</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">Block IP</h4>
                             <div class="input-group">
                                 <input type="text" class="input-field" id="blockIpInput" placeholder="Enter IP address">
                                 <button class="btn btn-danger btn-sm" onclick="blockIp()">Block</button>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Whitelist IP</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">Whitelist IP</h4>
                             <div class="input-group">
                                 <input type="text" class="input-field" id="whitelistIpInput" placeholder="Enter IP address">
                                 <button class="btn btn-primary btn-sm" onclick="whitelistIp()">Whitelist</button>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">Blacklist IP</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Blacklist IP</h4>
                             <div class="input-group">
                                 <input type="text" class="input-field" id="blacklistIpInput" placeholder="Enter IP address">
                                 <button class="btn btn-ghost btn-sm" onclick="blacklistIp()">Blacklist</button>
@@ -912,19 +1268,19 @@
                     <!-- IP Lists -->
                     <div class="grid-3" style="margin-top: 24px;">
                         <div>
-                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--danger);">🚫 Blocked IPs</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">🚫 Blocked IPs</h4>
                             <div class="ip-list" id="blockedList">
                                 <div class="empty-state" style="padding: 20px;">No blocked IPs</div>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--success);">✅ Whitelist</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">✅ Whitelist</h4>
                             <div class="ip-list" id="whitelistList">
                                 <div class="empty-state" style="padding: 20px;">Empty</div>
                             </div>
                         </div>
                         <div>
-                            <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-muted);">⛔ Blacklist</h4>
+                            <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">⛔ Blacklist</h4>
                             <div class="ip-list" id="blacklistList">
                                 <div class="empty-state" style="padding: 20px;">Empty</div>
                             </div>
@@ -934,7 +1290,7 @@
             </div>
 
             <!-- System Status -->
-            <div class="card" id="pipeline" style="margin-top: 24px;">
+            <div class="card fade-in fade-in-delay-4" id="pipeline" style="margin-top: 24px;">
                 <div class="card-header">
                     <div class="card-title">
                         <span>⚡</span> System Status
@@ -942,25 +1298,25 @@
                 </div>
                 <div class="card-body">
                     <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
-                        <div style="text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px;">
-                            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Model</div>
+                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model</div>
                             <div class="badge badge-normal" id="modelStatus">Not Loaded</div>
                         </div>
-                        <div style="text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px;">
-                            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Device</div>
+                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Device</div>
                             <div class="badge badge-info" id="processingDevice">CPU</div>
                         </div>
-                        <div style="text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px;">
-                            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Queue Size</div>
+                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Queue Size</div>
                             <div class="badge badge-info" id="queueSize">0</div>
                         </div>
-                        <div style="text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px;">
-                            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Last Update</div>
-                            <div style="font-size: 13px; font-family: 'JetBrains Mono', monospace;" id="lastUpdate">--:--:--</div>
+                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Last Update</div>
+                            <div style="font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="lastUpdate">--:--:--</div>
                         </div>
-                        <div style="text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px;">
-                            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Model Update</div>
-                            <div style="font-size: 13px; font-family: 'JetBrains Mono', monospace;" id="modelLastUpdate">Never</div>
+                        <div style="text-align: center; padding: 18px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model Update</div>
+                            <div style="font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="modelLastUpdate">Never</div>
                         </div>
                     </div>
                 </div>
@@ -993,7 +1349,7 @@
         function showToast(message, type = 'info') {
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
-            toast.className = 'toast';
+            toast.className = `toast ${type}`;
             toast.textContent = message;
             container.appendChild(toast);
             setTimeout(() => toast.remove(), 3000);
@@ -1008,25 +1364,40 @@
                     labels: ['Normal', 'DDoS', 'Suspicious'],
                     datasets: [{
                         data: [1, 0, 0],
-                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-                        borderWidth: 0,
-                        hoverOffset: 8
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(245, 158, 11, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 2,
+                        hoverOffset: 12
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    cutout: '70%',
+                    cutout: '75%',
                     plugins: {
                         legend: {
                             position: 'bottom',
                             labels: {
-                                color: '#9898a8',
+                                color: '#a0a0c0',
                                 padding: 16,
                                 usePointStyle: true,
-                                pointStyleWidth: 10
+                                pointStyleWidth: 10,
+                                font: { family: 'JetBrains Mono', size: 12 }
                             }
                         }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 1000
                     }
                 }
             });
@@ -1041,20 +1412,32 @@
                     document.getElementById('ddosDetections').textContent = data.ddos_detections || 0;
                     document.getElementById('normalDetections').textContent = data.normal_detections || 0;
                     document.getElementById('failedFiles').textContent = data.failed_files;
-                    document.getElementById('modelStatus').textContent = data.model_loaded ? 'Loaded' : 'Not Loaded';
-                    document.getElementById('modelStatus').className = `badge ${data.model_loaded ? 'badge-normal' : 'badge-warning'}`;
+
+                    const modelStatus = document.getElementById('modelStatus');
+                    modelStatus.textContent = data.model_loaded ? 'Loaded' : 'Not Loaded';
+                    modelStatus.className = `badge ${data.model_loaded ? 'badge-normal' : 'badge-warning'}`;
+
                     document.getElementById('processingDevice').textContent = (data.device && data.device.includes('cuda')) ? 'GPU' : 'CPU';
                     document.getElementById('queueSize').textContent = data.queue_size;
                     document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
                     const statusDot = document.getElementById('statusDot');
                     const statusText = document.getElementById('statusText');
+                    const statusBadge = document.getElementById('statusBadge');
+                    const terminalStatus = document.getElementById('terminalStatus');
+
                     if (data.running) {
                         statusDot.classList.add('active');
-                        statusText.textContent = 'Pipeline Running';
+                        statusText.textContent = 'Pipeline Active';
+                        statusBadge.classList.add('active');
+                        terminalStatus.textContent = 'running';
+                        terminalStatus.style.color = 'var(--success)';
                     } else {
                         statusDot.classList.remove('active');
-                        statusText.textContent = 'Pipeline Stopped';
+                        statusText.textContent = 'Pipeline Offline';
+                        statusBadge.classList.remove('active');
+                        terminalStatus.textContent = 'idle';
+                        terminalStatus.style.color = 'var(--text-muted)';
                     }
 
                     if (data.detection_stats) {
@@ -1075,7 +1458,7 @@
                     document.getElementById('detectionCount').textContent = `${data.metadata.total} total`;
 
                     if (!data.detections || data.detections.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div>No detections yet. Start the pipeline to begin monitoring.</div></td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📡</div><div>No detections yet. Start the pipeline to begin monitoring.</div></div></td></tr>';
                         return;
                     }
 
