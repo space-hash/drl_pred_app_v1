@@ -43,9 +43,10 @@ class PipelineController:
                 confidence_threshold=config.MITIGATION_CONFIDENCE_THRESHOLD,
                 detection_count=config.MITIGATION_DETECTION_COUNT,
                 block_duration_minutes=config.MITIGATION_BLOCK_DURATION_MINUTES,
+                use_iptables=config.MITIGATION_USE_IPTABLES,
             )
-            logger.info("Mitigation agent initialized (auto_block=%s, rate_limit=%s ppm=%s)",
-                       config.MITIGATION_AUTO_BLOCK, config.MITIGATION_RATE_LIMIT_ENABLED, config.MITIGATION_RATE_LIMIT_PPM)
+            logger.info("Mitigation agent initialized (auto_block=%s, rate_limit=%s ppm=%s, iptables=%s)",
+                       config.MITIGATION_AUTO_BLOCK, config.MITIGATION_RATE_LIMIT_ENABLED, config.MITIGATION_RATE_LIMIT_PPM, config.MITIGATION_USE_IPTABLES)
 
     def initialize_components(self) -> None:
         with self.lock:
@@ -238,8 +239,14 @@ class PipelineController:
         duration_sec = duration_us / 1_000_000.0
 
         with self.lock:
-            # Skip recording if source IP is already blocked
+            # If source IP is blocked, still count it in stats but hide from UI table
             if self.mitigation_agent and self.mitigation_agent.is_blocked(src_ip):
+                if status == "DDoS":
+                    self.ddos_count += 1
+                elif status == "Suspicious":
+                    self.suspicious_count += 1
+                else:
+                    self.normal_count += 1
                 self.mitigation_agent.on_detection({**detection_data, "src_ip": src_ip, "dst_ip": dst_ip})
                 return
 

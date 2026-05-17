@@ -128,9 +128,17 @@ systemctl enable "$SERVICE_NAME" 2>/dev/null || true
 echo -e "${GREEN}✓ Service installed (disabled - start manually)${NC}"
 
 # --- Step 7: Set Permissions ---
-echo -e "${YELLOW}[7/7] Setting up packet capture permissions...${NC}"
+echo -e "${YELLOW}[7/8] Setting up packet capture permissions...${NC}"
 setcap cap_net_raw,cap_net_admin+eip "$PYTHON_BIN" 2>/dev/null || true
 echo -e "${GREEN}✓ Capabilities set${NC}"
+
+# --- Step 8: Initialize Firewall ---
+echo -e "${YELLOW}[8/8] Initializing iptables firewall...${NC}"
+iptables -N DDOS_BLOCK 2>/dev/null || true
+iptables -I INPUT -j DDOS_BLOCK 2>/dev/null || true
+ip6tables -N DDOS_BLOCK 2>/dev/null || true
+ip6tables -I INPUT -j DDOS_BLOCK 2>/dev/null || true
+echo -e "${GREEN}✓ Firewall chain initialized${NC}"
 
 # --- Done ---
 echo ""

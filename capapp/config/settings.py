@@ -63,7 +63,7 @@ class Config:
     # Capture settings
     CAPTURE_INTERFACE = os.getenv("CAPTURE_INTERFACE", "enp0s3")
     CAPTURE_FILTER = os.getenv("CAPTURE_FILTER", "")
-    ROTATE_INTERVAL_SECONDS = _get_int("ROTATE_INTERVAL_SECONDS", 30)
+    ROTATE_INTERVAL_SECONDS = _get_int("ROTATE_INTERVAL_SECONDS", 5)
     ROTATE_MAX_SIZE_MB = _get_int("ROTATE_MAX_SIZE_MB", 50)
 
     # Dispatcher and processing settings
@@ -99,6 +99,7 @@ class Config:
     MITIGATION_CONFIDENCE_THRESHOLD = float(os.getenv("MITIGATION_CONFIDENCE_THRESHOLD", "0.8"))
     MITIGATION_DETECTION_COUNT = _get_int("MITIGATION_DETECTION_COUNT", 3)
     MITIGATION_BLOCK_DURATION_MINUTES = _get_int("MITIGATION_BLOCK_DURATION_MINUTES", 60)
+    MITIGATION_USE_IPTABLES = _get_bool("MITIGATION_USE_IPTABLES", True)
 
     @classmethod
     def setup_directories(cls):

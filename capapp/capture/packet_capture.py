@@ -70,16 +70,38 @@ class PacketCapturer:
         if self.packet_callback:
             try:
                 src_ip = None
+                protocol = 0
+                dst_port = 0
+                flags = 0
+
                 if packet.haslayer("IP"):
                     src_ip = packet["IP"].src
+                    protocol = packet["IP"].proto
                 elif packet.haslayer("IPv6"):
                     src_ip = packet["IPv6"].src
+                    protocol = packet["IPv6"].nh
+
+                if packet.haslayer("TCP"):
+                    dst_port = packet["TCP"].dport
+                    flags = int(packet["TCP"].flags)
+                elif packet.haslayer("UDP"):
+                    dst_port = packet["UDP"].dport
 
                 if src_ip and src_ip not in self._blocked_ips:
+                    # Rate-based blocking
                     blocked = self.packet_callback(src_ip)
                     if blocked:
                         self._blocked_ips.add(blocked)
                         logger.warning(f"Rate-blocked {blocked}")
+
+                    # Multi-vector analysis
+                    if hasattr(self.packet_callback, '__self__'):
+                        agent = self.packet_callback.__self__
+                        if hasattr(agent, 'on_packet_vector'):
+                            attack = agent.on_packet_vector(src_ip, protocol, dst_port, flags)
+                            if attack:
+                                self._blocked_ips.add(src_ip)
+                                logger.warning(f"Vector-blocked {src_ip}: {attack}")
             except Exception:
                 pass
 
