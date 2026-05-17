@@ -153,6 +153,13 @@ class PipelineController:
             if self.detect and hasattr(self.detect, "file_queue"):
                 queue_size = self.detect.file_queue.qsize()
 
+            # Count non-blocked detections
+            visible_count = len(self.recent_detections)
+            if self.mitigation_agent:
+                blocked_ips = {ip for ip, info in self.mitigation_agent._blocked_ips.items()
+                               if info["expiry"] > datetime.now()}
+                visible_count = len([d for d in self.recent_detections if d["src_ip"] not in blocked_ips])
+
             return {
                 "running": self.is_running(),
                 "start_time": self.start_time.isoformat() if self.start_time else None,
@@ -162,7 +169,7 @@ class PipelineController:
                 "ddos_detections": self.ddos_count,
                 "normal_detections": self.normal_count,
                 "suspicious_detections": self.suspicious_count,
-                "recent_detections_count": len(self.recent_detections),
+                "recent_detections_count": visible_count,
                 "model_loaded": self.detect is not None and self.detect.model is not None,
                 "queue_size": queue_size,
                 "device": str(getattr(self.detect, "device", "unknown")) if self.detect else "unknown",
@@ -170,6 +177,12 @@ class PipelineController:
 
     def get_recent_detections(self, limit: int = 20) -> List[Dict[str, Any]]:
         with self.lock:
+            # Filter out detections from currently blocked IPs
+            if self.mitigation_agent:
+                blocked_ips = {ip for ip, info in self.mitigation_agent._blocked_ips.items()
+                               if info["expiry"] > datetime.now()}
+                filtered = [d for d in self.recent_detections if d["src_ip"] not in blocked_ips]
+                return list(reversed(filtered[-limit:]))
             return list(reversed(self.recent_detections[-limit:]))
 
     def get_detection_details(self, detection_id: str) -> Optional[Dict[str, Any]]:
@@ -225,6 +238,11 @@ class PipelineController:
         duration_sec = duration_us / 1_000_000.0
 
         with self.lock:
+            # Skip recording if source IP is already blocked
+            if self.mitigation_agent and self.mitigation_agent.is_blocked(src_ip):
+                self.mitigation_agent.on_detection({**detection_data, "src_ip": src_ip, "dst_ip": dst_ip})
+                return
+
             if status == "DDoS":
                 self.ddos_count += 1
             elif status == "Suspicious":

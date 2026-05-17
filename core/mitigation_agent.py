@@ -114,6 +114,13 @@ class MitigationAgent:
         })
         logger.warning(f"Blocked {ip}: {reason}")
 
+    def is_blocked(self, ip: str) -> bool:
+        """Check if an IP is currently blocked (not expired)."""
+        with self._lock:
+            if ip not in self._blocked_ips:
+                return False
+            return self._blocked_ips[ip]["expiry"] > datetime.now()
+
     def block_ip(self, ip: str, reason: str = "Manual block") -> bool:
         with self._lock:
             self._do_block(ip, reason)

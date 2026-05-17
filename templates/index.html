@@ -779,9 +779,37 @@
             flex: 1;
         }
 
-        /* IP Lists */
+        /* Mitigation Section */
+        .mitigation-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .mitigation-lists {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .ip-list-container {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+
+        .ip-list-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
         .ip-list {
-            max-height: 220px;
+            max-height: 180px;
             overflow-y: auto;
         }
 
@@ -789,53 +817,59 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 14px;
-            background: rgba(0, 0, 0, 0.2);
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border);
-            border-radius: var(--radius-sm);
-            margin-bottom: 8px;
+            border-radius: 8px;
+            margin-bottom: 6px;
             transition: var(--transition);
         }
 
         .ip-item:hover {
             border-color: var(--border-hover);
-            background: rgba(99, 102, 241, 0.05);
         }
 
         .ip-info {
             display: flex;
             flex-direction: column;
             gap: 2px;
+            min-width: 0;
         }
 
         .ip-address {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
+            word-break: break-all;
         }
 
         .ip-reason {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
         }
 
         .ip-actions {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
+            flex-shrink: 0;
         }
 
         .ip-timer {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--warning);
             font-weight: 600;
             font-family: 'JetBrains Mono', monospace;
         }
 
         .btn-sm {
-            padding: 8px 14px;
-            font-size: 12px;
-            border-radius: 8px;
+            padding: 6px 12px;
+            font-size: 11px;
+            border-radius: 6px;
         }
 
         /* Chart Container */
@@ -1200,7 +1234,7 @@
             </div>
 
             <!-- Mitigation Control -->
-            <div class="card fade-in fade-in-delay-4" id="mitigation">
+            <div class="card" id="mitigation" style="margin-top: 20px;">
                 <div class="card-header">
                     <div class="card-title">
                         <span>🛡️</span> Mitigation Control
@@ -1209,7 +1243,7 @@
                 </div>
                 <div class="card-body">
                     <!-- Toggles -->
-                    <div class="mitigation-grid" style="margin-bottom: 20px;">
+                    <div class="mitigation-grid" style="margin-bottom: 16px;">
                         <div class="mitigation-item">
                             <div class="mitigation-label">Master Mitigation</div>
                             <div style="display: flex; align-items: center; gap: 14px;">
@@ -1249,52 +1283,43 @@
                     </div>
 
                     <!-- Action Buttons -->
-                    <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
                         <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
                         <button class="btn btn-ghost" onclick="clearCounts()">🗑️ Clear Counts</button>
                     </div>
 
-                    <!-- IP Management -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px;">
-                        <div>
-                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">Block IP</h4>
-                            <div class="input-group">
-                                <input type="text" class="input-field" id="blockIpInput" placeholder="Enter IP">
-                                <button class="btn btn-danger btn-sm" onclick="blockIp()">Block</button>
-                            </div>
+                    <!-- IP Management Inputs -->
+                    <div class="mitigation-inputs">
+                        <div class="input-group">
+                            <input type="text" class="input-field" id="blockIpInput" placeholder="Block IP address">
+                            <button class="btn btn-danger btn-sm" onclick="blockIp()">Block</button>
                         </div>
-                        <div>
-                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">Whitelist IP</h4>
-                            <div class="input-group">
-                                <input type="text" class="input-field" id="whitelistIpInput" placeholder="Enter IP">
-                                <button class="btn btn-primary btn-sm" onclick="whitelistIp()">Add</button>
-                            </div>
+                        <div class="input-group">
+                            <input type="text" class="input-field" id="whitelistIpInput" placeholder="Whitelist IP">
+                            <button class="btn btn-primary btn-sm" onclick="whitelistIp()">Add</button>
                         </div>
-                        <div>
-                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 8px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Blacklist IP</h4>
-                            <div class="input-group">
-                                <input type="text" class="input-field" id="blacklistIpInput" placeholder="Enter IP">
-                                <button class="btn btn-ghost btn-sm" onclick="blacklistIp()">Add</button>
-                            </div>
+                        <div class="input-group">
+                            <input type="text" class="input-field" id="blacklistIpInput" placeholder="Blacklist IP">
+                            <button class="btn btn-ghost btn-sm" onclick="blacklistIp()">Add</button>
                         </div>
                     </div>
 
                     <!-- IP Lists -->
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
-                        <div>
-                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--danger); text-transform: uppercase; letter-spacing: 1px;">🚫 Blocked IPs</h4>
+                    <div class="mitigation-lists">
+                        <div class="ip-list-container">
+                            <h4 class="ip-list-title">🚫 Blocked IPs</h4>
                             <div class="ip-list" id="blockedList">
                                 <div class="empty-state" style="padding: 16px;">No blocked IPs</div>
                             </div>
                         </div>
-                        <div>
-                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--success); text-transform: uppercase; letter-spacing: 1px;">✅ Whitelist</h4>
+                        <div class="ip-list-container">
+                            <h4 class="ip-list-title">✅ Whitelist</h4>
                             <div class="ip-list" id="whitelistList">
                                 <div class="empty-state" style="padding: 16px;">Empty</div>
                             </div>
                         </div>
-                        <div>
-                            <h4 style="font-size: 12px; font-weight: 600; margin-bottom: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">⛔ Blacklist</h4>
+                        <div class="ip-list-container">
+                            <h4 class="ip-list-title">⛔ Blacklist</h4>
                             <div class="ip-list" id="blacklistList">
                                 <div class="empty-state" style="padding: 16px;">Empty</div>
                             </div>
@@ -1552,7 +1577,7 @@
                     // Blocked IPs
                     const bl = document.getElementById('blockedList');
                     if (!d.blocked_ips || d.blocked_ips.length === 0) {
-                        bl.innerHTML = '<div class="empty-state" style="padding: 20px;">No blocked IPs</div>';
+                        bl.innerHTML = '<div class="empty-state" style="padding: 16px;">No blocked IPs</div>';
                     } else {
                         bl.innerHTML = d.blocked_ips.map(b => `
                             <div class="ip-item">
@@ -1571,7 +1596,7 @@
                     // Whitelist
                     const wl = document.getElementById('whitelistList');
                     if (!d.whitelist || d.whitelist.length === 0) {
-                        wl.innerHTML = '<div class="empty-state" style="padding: 20px;">Empty</div>';
+                        wl.innerHTML = '<div class="empty-state" style="padding: 16px;">Empty</div>';
                     } else {
                         wl.innerHTML = d.whitelist.map(ip => `
                             <div class="ip-item">
@@ -1584,7 +1609,7 @@
                     // Blacklist
                     const bl2 = document.getElementById('blacklistList');
                     if (!d.blacklist || d.blacklist.length === 0) {
-                        bl2.innerHTML = '<div class="empty-state" style="padding: 20px;">Empty</div>';
+                        bl2.innerHTML = '<div class="empty-state" style="padding: 16px;">Empty</div>';
                     } else {
                         bl2.innerHTML = d.blacklist.map(ip => `
                             <div class="ip-item">
