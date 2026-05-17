@@ -16,8 +16,10 @@ from core.controller import (
     controller,
 )
 from capapp.config.settings import config
+from core.system_monitor import SystemMonitor
 
 app = Flask(__name__)
+system_monitor = SystemMonitor()
 
 @app.after_request
 def add_no_cache_headers(response):
@@ -290,6 +292,129 @@ def api_mitigation_clear_counts():
         return jsonify({"error": "Not enabled"}), 400
     controller.mitigation_agent.clear_detection_counts()
     return jsonify({"status": "cleared"})
+
+
+# System Metrics API
+@app.route("/api/system/metrics")
+def api_system_metrics():
+    return jsonify(system_monitor.get_all_metrics(controller))
+
+
+# eBPF/XDP API
+@app.route("/api/ebpf/status")
+def api_ebpf_status():
+    if not controller.ebpf_manager:
+        return jsonify({"enabled": False})
+    return jsonify(controller.ebpf_manager.get_stats())
+
+@app.route("/api/ebpf/block", methods=["POST"])
+def api_ebpf_block():
+    if not controller.ebpf_manager:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    reason = request.json.get("reason", "Manual eBPF block")
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    if controller.ebpf_manager.block_ip(ip, reason):
+        return jsonify({"status": "blocked", "ip": ip})
+    return jsonify({"error": "Failed to block"}), 500
+
+@app.route("/api/ebpf/unblock", methods=["POST"])
+def api_ebpf_unblock():
+    if not controller.ebpf_manager:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    if controller.ebpf_manager.unblock_ip(ip):
+        return jsonify({"status": "unblocked", "ip": ip})
+    return jsonify({"error": "Not blocked"}), 404
+
+
+# DRL Mitigation API
+@app.route("/api/drl_mitigation/status")
+def api_drl_mitigation_status():
+    if not controller.drl_mitigation:
+        return jsonify({"enabled": False})
+    return jsonify(controller.drl_mitigation.get_status())
+
+@app.route("/api/drl_mitigation/toggle", methods=["POST"])
+def api_drl_mitigation_toggle():
+    if not controller.drl_mitigation:
+        return jsonify({"error": "Not enabled"}), 400
+    enabled = request.json.get("enabled", False)
+    controller.drl_mitigation.set_enabled(enabled)
+    return jsonify({"status": "ok", "enabled": enabled})
+
+@app.route("/api/drl_mitigation/settings", methods=["POST"])
+def api_drl_mitigation_settings():
+    if not controller.drl_mitigation:
+        return jsonify({"error": "Not enabled"}), 400
+    data = request.json
+    if "confidence_threshold" in data:
+        controller.drl_mitigation.set_confidence_threshold(float(data["confidence_threshold"]))
+    if "block_duration" in data:
+        controller.drl_mitigation.set_block_duration(int(data["block_duration"]))
+    return jsonify({"status": "ok"})
+
+@app.route("/api/drl_mitigation/unblock", methods=["POST"])
+def api_drl_mitigation_unblock():
+    if not controller.drl_mitigation:
+        return jsonify({"error": "Not enabled"}), 400
+    ip = request.json.get("ip", "").strip()
+    if not ip:
+        return jsonify({"error": "IP required"}), 400
+    if controller.drl_mitigation.unblock_ip(ip):
+        return jsonify({"status": "unblocked", "ip": ip})
+    return jsonify({"error": "Not blocked"}), 404
+
+
+# Alerting API
+@app.route("/api/alerts")
+def api_alerts():
+    if not controller.alert_manager:
+        return jsonify({"enabled": False})
+    limit = int(request.args.get("limit", 20))
+    severity = request.args.get("severity")
+    return jsonify({"alerts": controller.alert_manager.get_alerts(limit, severity)})
+
+@app.route("/api/alerts/stats")
+def api_alerts_stats():
+    if not controller.alert_manager:
+        return jsonify({"enabled": False})
+    return jsonify(controller.alert_manager.get_stats())
+
+@app.route("/api/alerts/acknowledge", methods=["POST"])
+def api_alerts_acknowledge():
+    if not controller.alert_manager:
+        return jsonify({"error": "Not enabled"}), 400
+    alert_id = request.json.get("alert_id", "")
+    if not alert_id:
+        return jsonify({"error": "alert_id required"}), 400
+    if controller.alert_manager.acknowledge_alert(alert_id):
+        return jsonify({"status": "acknowledged"})
+    return jsonify({"error": "Alert not found"}), 404
+
+@app.route("/api/alerts/clear", methods=["POST"])
+def api_alerts_clear():
+    if not controller.alert_manager:
+        return jsonify({"error": "Not enabled"}), 400
+    controller.alert_manager.clear_alerts()
+    return jsonify({"status": "cleared"})
+
+@app.route("/api/alerts/test", methods=["POST"])
+def api_alerts_test():
+    if not controller.alert_manager:
+        return jsonify({"error": "Not enabled"}), 400
+    alert = controller.alert_manager.send_alert(
+        alert_type="test",
+        severity="info",
+        title="Test Alert",
+        message="This is a test alert from the DDoS Protection System",
+    )
+    if alert:
+        return jsonify({"status": "sent", "alert_id": alert.id})
+    return jsonify({"error": "Failed to send test alert"}), 500
 
 
 def graceful_shutdown(signum, frame):

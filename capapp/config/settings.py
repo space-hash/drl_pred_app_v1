@@ -101,6 +101,37 @@ class Config:
     MITIGATION_BLOCK_DURATION_MINUTES = _get_int("MITIGATION_BLOCK_DURATION_MINUTES", 60)
     MITIGATION_USE_IPTABLES = _get_bool("MITIGATION_USE_IPTABLES", True)
 
+    # eBPF/XDP settings (optional, requires bcc library)
+    EBPF_ENABLED = _get_bool("EBPF_ENABLED", False)
+    EBPF_USE_XDP = _get_bool("EBPF_USE_XDP", True)
+    EBPF_FALLBACK_TO_IPTABLES = _get_bool("EBPF_FALLBACK_TO_IPTABLES", True)
+
+    # DRL mitigation settings
+    DRL_MITIGATION_ENABLED = _get_bool("DRL_MITIGATION_ENABLED", False)
+    DRL_MITIGATION_MODEL_PATH = os.getenv("DRL_MITIGATION_MODEL_PATH", str(MODEL_DIR / "final_drl1.pt"))
+    DRL_MITIGATION_CONFIDENCE_THRESHOLD = float(os.getenv("DRL_MITIGATION_CONFIDENCE_THRESHOLD", "0.7"))
+    DRL_MITIGATION_BLOCK_DURATION_MINUTES = _get_int("DRL_MITIGATION_BLOCK_DURATION_MINUTES", 30)
+    DRL_MITIGATION_FEATURE_WINDOW_SIZE = _get_int("DRL_MITIGATION_FEATURE_WINDOW_SIZE", 10)
+
+    # Alerting settings
+    ALERTING_ENABLED = _get_bool("ALERTING_ENABLED", True)
+    ALERTING_RATE_LIMIT_SECONDS = _get_int("ALERTING_RATE_LIMIT_SECONDS", 60)
+    ALERTING_DEDUP_WINDOW_SECONDS = _get_int("ALERTING_DEDUP_WINDOW_SECONDS", 300)
+
+    # Email alerting
+    ALERTING_EMAIL_ENABLED = _get_bool("ALERTING_EMAIL_ENABLED", False)
+    ALERTING_EMAIL_SMTP_HOST = os.getenv("ALERTING_EMAIL_SMTP_HOST", "smtp.gmail.com")
+    ALERTING_EMAIL_SMTP_PORT = _get_int("ALERTING_EMAIL_SMTP_PORT", 587)
+    ALERTING_EMAIL_USERNAME = os.getenv("ALERTING_EMAIL_USERNAME", "")
+    ALERTING_EMAIL_PASSWORD = os.getenv("ALERTING_EMAIL_PASSWORD", "")
+    ALERTING_EMAIL_FROM = os.getenv("ALERTING_EMAIL_FROM", "")
+    ALERTING_EMAIL_TO = os.getenv("ALERTING_EMAIL_TO", "").split(",") if os.getenv("ALERTING_EMAIL_TO") else []
+
+    # Webhook alerting (Slack, Discord, etc.)
+    ALERTING_WEBHOOK_ENABLED = _get_bool("ALERTING_WEBHOOK_ENABLED", False)
+    ALERTING_WEBHOOK_URL = os.getenv("ALERTING_WEBHOOK_URL", "")
+    ALERTING_WEBHOOK_TYPE = os.getenv("ALERTING_WEBHOOK_TYPE", "generic")
+
     @classmethod
     def setup_directories(cls):
         """Creates all necessary directories for the pipeline to operate."""

@@ -25,6 +25,9 @@ class PipelineController:
         self.detect: Optional[LocalPredictionPipeline] = None
         self.model_updater: Optional[ModelUpdater] = None
         self.mitigation_agent = None
+        self.ebpf_manager = None
+        self.drl_mitigation = None
+        self.alert_manager = None
 
         self.ddos_count = 0
         self.normal_count = 0
@@ -47,6 +50,36 @@ class PipelineController:
             )
             logger.info("Mitigation agent initialized (auto_block=%s, rate_limit=%s ppm=%s, iptables=%s)",
                        config.MITIGATION_AUTO_BLOCK, config.MITIGATION_RATE_LIMIT_ENABLED, config.MITIGATION_RATE_LIMIT_PPM, config.MITIGATION_USE_IPTABLES)
+
+        if config.EBPF_ENABLED:
+            from core.ebpf_manager import EbpfManager
+            self.ebpf_manager = EbpfManager(
+                interface=config.CAPTURE_INTERFACE,
+                use_xdp=config.EBPF_USE_XDP,
+                fallback_to_iptables=config.EBPF_FALLBACK_TO_IPTABLES,
+            )
+            if self.ebpf_manager.initialize():
+                logger.info("eBPF/XDP manager initialized")
+            else:
+                logger.warning("eBPF/XDP initialization failed")
+
+        if config.DRL_MITIGATION_ENABLED:
+            from core.drl_mitigation import DRLMitigationAgent
+            self.drl_mitigation = DRLMitigationAgent(
+                model_path=config.DRL_MITIGATION_MODEL_PATH,
+                confidence_threshold=config.DRL_MITIGATION_CONFIDENCE_THRESHOLD,
+                block_duration_minutes=config.DRL_MITIGATION_BLOCK_DURATION_MINUTES,
+                feature_window_size=config.DRL_MITIGATION_FEATURE_WINDOW_SIZE,
+                enabled=True,
+            )
+            logger.info("DRL mitigation agent initialized (model=%s, confidence=%.2f)",
+                       config.DRL_MITIGATION_MODEL_PATH, config.DRL_MITIGATION_CONFIDENCE_THRESHOLD)
+
+        if config.ALERTING_ENABLED:
+            from core.alerting import create_alert_manager_from_config
+            self.alert_manager = create_alert_manager_from_config(config)
+            self.alert_manager.load_history()
+            logger.info("Alert manager initialized")
 
     def initialize_components(self) -> None:
         with self.lock:
@@ -131,6 +164,12 @@ class PipelineController:
             if self.model_updater:
                 self.model_updater.stop_periodic_update()
 
+            # Clean up new modules
+            if self.ebpf_manager:
+                self.ebpf_manager.shutdown()
+            if self.drl_mitigation:
+                self.drl_mitigation.cleanup_expired()
+
             with self.lock:
                 self.pipeline_active.clear()
                 self.pipeline = None
@@ -156,10 +195,16 @@ class PipelineController:
 
             # Count non-blocked detections
             visible_count = len(self.recent_detections)
+            blocked_ips = set()
             if self.mitigation_agent:
-                blocked_ips = {ip for ip, info in self.mitigation_agent._blocked_ips.items()
-                               if info["expiry"] > datetime.now()}
-                visible_count = len([d for d in self.recent_detections if d["src_ip"] not in blocked_ips])
+                blocked_ips.update({ip for ip, info in self.mitigation_agent._blocked_ips.items()
+                               if info["expiry"] > datetime.now()})
+            if self.drl_mitigation:
+                blocked_ips.update({ip for ip, info in self.drl_mitigation._blocked_ips.items()
+                               if info["expiry"] > datetime.now()})
+            if self.ebpf_manager:
+                blocked_ips.update(self.ebpf_manager._blocked_ips.keys())
+            visible_count = len([d for d in self.recent_detections if d["src_ip"] not in blocked_ips])
 
             return {
                 "running": self.is_running(),
@@ -174,17 +219,26 @@ class PipelineController:
                 "model_loaded": self.detect is not None and self.detect.model is not None,
                 "queue_size": queue_size,
                 "device": str(getattr(self.detect, "device", "unknown")) if self.detect else "unknown",
+                "ebpf_enabled": self.ebpf_manager is not None,
+                "drl_mitigation_enabled": self.drl_mitigation is not None,
+                "alerting_enabled": self.alert_manager is not None,
             }
 
     def get_recent_detections(self, limit: int = 20) -> List[Dict[str, Any]]:
         with self.lock:
-            # Filter out detections from currently blocked IPs
+            # Filter out detections from currently blocked IPs (any module)
+            blocked_ips = set()
             if self.mitigation_agent:
-                blocked_ips = {ip for ip, info in self.mitigation_agent._blocked_ips.items()
-                               if info["expiry"] > datetime.now()}
-                filtered = [d for d in self.recent_detections if d["src_ip"] not in blocked_ips]
-                return list(reversed(filtered[-limit:]))
-            return list(reversed(self.recent_detections[-limit:]))
+                blocked_ips.update({ip for ip, info in self.mitigation_agent._blocked_ips.items()
+                               if info["expiry"] > datetime.now()})
+            if self.drl_mitigation:
+                blocked_ips.update({ip for ip, info in self.drl_mitigation._blocked_ips.items()
+                               if info["expiry"] > datetime.now()})
+            if self.ebpf_manager:
+                blocked_ips.update(self.ebpf_manager._blocked_ips.keys())
+
+            filtered = [d for d in self.recent_detections if d["src_ip"] not in blocked_ips]
+            return list(reversed(filtered[-limit:]))
 
     def get_detection_details(self, detection_id: str) -> Optional[Dict[str, Any]]:
         with self.lock:
@@ -240,14 +294,23 @@ class PipelineController:
 
         with self.lock:
             # If source IP is blocked, still count it in stats but hide from UI table
+            blocked_by_any = False
             if self.mitigation_agent and self.mitigation_agent.is_blocked(src_ip):
+                blocked_by_any = True
+            if self.drl_mitigation and self.drl_mitigation.is_blocked(src_ip):
+                blocked_by_any = True
+            if self.ebpf_manager and self.ebpf_manager.is_blocked(src_ip):
+                blocked_by_any = True
+
+            if blocked_by_any:
                 if status == "DDoS":
                     self.ddos_count += 1
                 elif status == "Suspicious":
                     self.suspicious_count += 1
                 else:
                     self.normal_count += 1
-                self.mitigation_agent.on_detection({**detection_data, "src_ip": src_ip, "dst_ip": dst_ip})
+                if self.mitigation_agent:
+                    self.mitigation_agent.on_detection({**detection_data, "src_ip": src_ip, "dst_ip": dst_ip})
                 return
 
             if status == "DDoS":
@@ -282,8 +345,39 @@ class PipelineController:
             if len(self.recent_detections) > 200:
                 self.recent_detections = self.recent_detections[-100:]
 
+        # Run through mitigation agents
         if self.mitigation_agent:
             self.mitigation_agent.on_detection(detection)
+
+        # Run through DRL mitigation
+        if self.drl_mitigation:
+            blocked_ip = self.drl_mitigation.on_packet(src_ip, detection_data)
+            if blocked_ip and self.alert_manager:
+                self.alert_manager.send_alert(
+                    alert_type="drl_block",
+                    severity="critical",
+                    title=f"DRL Auto-Block: {blocked_ip}",
+                    message=f"IP {blocked_ip} blocked by DRL model with high confidence",
+                    metadata={"ip": blocked_ip, "detection": detection},
+                )
+
+        # Send alert for DDoS detections
+        if self.alert_manager and status == "DDoS" and confidence >= 0.8:
+            self.alert_manager.send_alert(
+                alert_type="ddos_detection",
+                severity="critical",
+                title=f"DDoS Detected: {src_ip}",
+                message=f"High-confidence DDoS detection from {src_ip} (confidence={confidence:.2%})",
+                metadata={"src_ip": src_ip, "dst_ip": dst_ip, "protocol": protocol, "confidence": confidence},
+            )
+        elif self.alert_manager and status == "Suspicious":
+            self.alert_manager.send_alert(
+                alert_type="suspicious_detection",
+                severity="warning",
+                title=f"Suspicious Activity: {src_ip}",
+                message=f"Suspicious traffic from {src_ip} (confidence={confidence:.2%})",
+                metadata={"src_ip": src_ip, "confidence": confidence},
+            )
 
 
 controller = PipelineController()

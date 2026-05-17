@@ -23,7 +23,11 @@ def setup_logger():
 
     # File Handler
     log_file = config.LOG_DIR / f"pipeline_{datetime.now().strftime('%Y%m%d')}.log"
-    file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
+    try:
+        file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5, errors='replace')
+    except TypeError:
+        # Fallback for older Python versions
+        file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
     file_handler.setFormatter(log_format)
     logger.addHandler(file_handler)
 

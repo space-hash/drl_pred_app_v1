@@ -932,6 +932,7 @@
         @media (max-width: 1200px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            #systemHealth .card-body > div:first-child > div { grid-template-columns: repeat(2, 1fr); }
         }
 
         @media (max-width: 768px) {
@@ -940,6 +941,11 @@
             .stats-grid { grid-template-columns: 1fr; }
             .mitigation-grid { grid-template-columns: 1fr; }
             .header { flex-direction: column; }
+            #systemHealth .card-body > div:first-child > div { grid-template-columns: 1fr; }
+            #systemHealth .card-body > div:last-child { grid-template-columns: 1fr; }
+            .mitigation-lists { grid-template-columns: 1fr; }
+            .mitigation-inputs { grid-template-columns: 1fr; }
+            .ip-list-container { max-height: 150px; }
         }
 
         /* Loading spinner */
@@ -1074,9 +1080,24 @@
                     </div>
                 </div>
                 <div class="nav-section">
+                    <div class="nav-label">Advanced</div>
+                    <div class="nav-item" onclick="scrollToSection('ebpf')">
+                        <span class="nav-icon">⚛️</span> eBPF/XDP
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('drl')">
+                        <span class="nav-icon">🧠</span> DRL Model
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('alerts')">
+                        <span class="nav-icon">🔔</span> Alerts
+                    </div>
+                </div>
+                <div class="nav-section">
                     <div class="nav-label">System</div>
                     <div class="nav-item" onclick="scrollToSection('pipeline')">
                         <span class="nav-icon">⚡</span> Pipeline
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('systemHealth')">
+                        <span class="nav-icon">🖥️</span> System Health
                     </div>
                     <div class="nav-item" onclick="updateModel()">
                         <span class="nav-icon">🔄</span> Update Model
@@ -1328,6 +1349,131 @@
                 </div>
             </div>
 
+            <!-- eBPF/XDP Panel -->
+            <div class="card" id="ebpf" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>⚛️</span> eBPF/XDP Kernel Filtering
+                    </div>
+                    <span class="badge badge-warning" id="ebpfStatus">Disabled</span>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">XDP Mode</div>
+                            <div class="mono" id="ebpfXdp" style="font-size: 16px; font-weight: 700; color: var(--accent);">--</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Interface</div>
+                            <div class="mono" id="ebpfInterface" style="font-size: 16px; font-weight: 700; color: var(--accent-cyan);">--</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Packets Dropped</div>
+                            <div class="mono" id="ebpfDropped" style="font-size: 16px; font-weight: 700; color: var(--danger);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">BCC Library</div>
+                            <div class="mono" id="ebpfBcc" style="font-size: 16px; font-weight: 700; color: var(--text-muted);">--</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <div class="input-group" style="flex: 1;">
+                            <input type="text" class="input-field" id="ebpfBlockIp" placeholder="Block IP via XDP">
+                            <button class="btn btn-danger btn-sm" onclick="ebpfBlockIp()">Block</button>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="loadEbpf()">↻ Refresh</button>
+                    </div>
+                    <div class="ip-list-container">
+                        <h4 class="ip-list-title">🚫 eBPF Blocked IPs</h4>
+                        <div class="ip-list" id="ebpfBlockedList">
+                            <div class="empty-state" style="padding: 16px;">No eBPF blocks</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DRL Mitigation Panel -->
+            <div class="card" id="drl" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🧠</span> DRL Model Mitigation
+                    </div>
+                    <span class="badge badge-warning" id="drlStatus">Disabled</span>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Model Loaded</div>
+                            <div class="badge badge-warning" id="drlModel" style="font-size: 11px;">No</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Confidence</div>
+                            <div class="mono" id="drlConfidence" style="font-size: 16px; font-weight: 700; color: var(--accent);">--</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Decisions Made</div>
+                            <div class="mono" id="drlDecisions" style="font-size: 16px; font-weight: 700; color: var(--accent-cyan);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Blocks Applied</div>
+                            <div class="mono" id="drlBlocks" style="font-size: 16px; font-weight: 700; color: var(--danger);">0</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+                        <div class="toggle-switch" id="drlToggle" onclick="toggleDrl()"></div>
+                        <span style="font-size: 13px; color: var(--text-secondary);">Enable DRL-based blocking</span>
+                        <button class="btn btn-ghost btn-sm" onclick="loadDrl()">↻ Refresh</button>
+                    </div>
+                    <div class="ip-list-container">
+                        <h4 class="ip-list-title">🚫 DRL Blocked IPs</h4>
+                        <div class="ip-list" id="drlBlockedList">
+                            <div class="empty-state" style="padding: 16px;">No DRL blocks</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Panel -->
+            <div class="card" id="alerts" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🔔</span> Alert Center
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="badge badge-critical" id="alertCount">0 Alerts</span>
+                        <button class="btn btn-ghost btn-sm" onclick="loadAlerts()">↻ Refresh</button>
+                        <button class="btn btn-primary btn-sm" onclick="testAlert()">📤 Test Alert</button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearAlerts()">🗑️ Clear</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Total Alerts</div>
+                            <div class="mono" id="alertTotal" style="font-size: 18px; font-weight: 700; color: var(--accent);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Critical</div>
+                            <div class="mono" id="alertCritical" style="font-size: 18px; font-weight: 700; color: var(--danger);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Warning</div>
+                            <div class="mono" id="alertWarning" style="font-size: 18px; font-weight: 700; color: var(--warning);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Channels</div>
+                            <div class="mono" id="alertChannels" style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">--</div>
+                        </div>
+                    </div>
+                    <div class="ip-list-container" style="max-height: 300px; overflow-y: auto;">
+                        <h4 class="ip-list-title">📋 Alert History</h4>
+                        <div class="ip-list" id="alertList">
+                            <div class="empty-state" style="padding: 16px;">No alerts yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- System Status -->
             <div class="card fade-in fade-in-delay-4" id="pipeline" style="margin-top: 24px;">
                 <div class="card-header">
@@ -1360,6 +1506,117 @@
                     </div>
                 </div>
             </div>
+
+            <!-- System Health Panel -->
+            <div class="card" id="systemHealth" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🖥️</span> System Health
+                    </div>
+                    <span class="badge badge-info" id="healthTimestamp">--:--:--</span>
+                </div>
+                <div class="card-body">
+                    <!-- Hardware Metrics -->
+                    <div style="margin-bottom: 24px;">
+                        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">Server Hardware</div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">CPU Usage</div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span class="mono" id="cpuPercent" style="font-size: 24px; font-weight: 700; color: var(--accent);">0%</span>
+                                    <span style="font-size: 11px; color: var(--text-muted);" id="cpuCores">0 cores</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px;">
+                                    <div id="cpuBar" style="width: 0%; height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Memory</div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span class="mono" id="memPercent" style="font-size: 24px; font-weight: 700; color: var(--accent-cyan);">0%</span>
+                                    <span style="font-size: 11px; color: var(--text-muted);" id="memUsed">0 / 0 GB</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px;">
+                                    <div id="memBar" style="width: 0%; height: 100%; background: var(--accent-cyan); border-radius: 2px; transition: width 0.5s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Disk</div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span class="mono" id="diskPercent" style="font-size: 24px; font-weight: 700; color: var(--accent-purple);">0%</span>
+                                    <span style="font-size: 11px; color: var(--text-muted);" id="diskUsed">0 / 0 GB</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px;">
+                                    <div id="diskBar" style="width: 0%; height: 100%; background: var(--accent-purple); border-radius: 2px; transition: width 0.5s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Network I/O</div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 11px; color: var(--text-muted);">↓ RX</span>
+                                        <span class="mono" id="netRx" style="font-size: 13px; color: var(--success);">0 Mbps</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 11px; color: var(--text-muted);">↑ TX</span>
+                                        <span class="mono" id="netTx" style="font-size: 13px; color: var(--accent-cyan);">0 Mbps</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 11px; color: var(--text-muted);">PPS</span>
+                                        <span class="mono" id="netPps" style="font-size: 13px; color: var(--text-secondary);">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Application & Security Metrics -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">Application Performance</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Pipeline</div>
+                                    <div class="badge badge-normal" id="appPipeline" style="font-size: 11px;">Stopped</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Queue</div>
+                                    <div class="mono" id="appQueue" style="font-size: 18px; font-weight: 700; color: var(--accent);">0</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Detections/min</div>
+                                    <div class="mono" id="appDpm" style="font-size: 18px; font-weight: 700; color: var(--warning);">0</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Uptime</div>
+                                    <div class="mono" id="appUptime" style="font-size: 18px; font-weight: 700; color: var(--text-secondary);">0h</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">Security & Mitigation</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Active Blocks</div>
+                                    <div class="mono" id="secBlocks" style="font-size: 18px; font-weight: 700; color: var(--danger);">0</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Firewall</div>
+                                    <div class="badge badge-normal" id="secFirewall" style="font-size: 11px;">Inactive</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">eBPF/XDP</div>
+                                    <div class="badge badge-warning" id="secEbpf" style="font-size: 11px;">Disabled</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Alerts</div>
+                                    <div class="mono" id="secAlerts" style="font-size: 18px; font-weight: 700; color: var(--warning);">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -1377,8 +1634,16 @@
             initializeChart();
             updateDashboard();
             loadMitigation();
+            updateSystemHealth();
+            loadEbpf();
+            loadDrl();
+            loadAlerts();
             setInterval(updateDashboard, 5000);
             setInterval(loadMitigation, 10000);
+            setInterval(updateSystemHealth, 3000);
+            setInterval(loadEbpf, 15000);
+            setInterval(loadDrl, 15000);
+            setInterval(loadAlerts, 10000);
         });
 
         function scrollToSection(id) {
@@ -1743,6 +2008,228 @@
                 loadMitigation();
                 showToast('Removed from blacklist');
             });
+        }
+
+        // System Health
+        function updateSystemHealth() {
+            fetch('/api/system/metrics')
+                .then(r => r.json())
+                .then(data => {
+                    const hw = data.hardware || {};
+                    const app = data.application || {};
+                    const sec = data.security || {};
+
+                    // Timestamp
+                    document.getElementById('healthTimestamp').textContent = new Date(data.timestamp).toLocaleTimeString();
+
+                    // Hardware
+                    document.getElementById('cpuPercent').textContent = `${hw.cpu_percent || 0}%`;
+                    document.getElementById('cpuCores').textContent = `${hw.cpu_count || 0} cores`;
+                    document.getElementById('cpuBar').style.width = `${hw.cpu_percent || 0}%`;
+
+                    document.getElementById('memPercent').textContent = `${hw.memory_percent || 0}%`;
+                    document.getElementById('memUsed').textContent = `${hw.memory_used_gb || 0} / ${hw.memory_total_gb || 0} GB`;
+                    document.getElementById('memBar').style.width = `${hw.memory_percent || 0}%`;
+
+                    document.getElementById('diskPercent').textContent = `${hw.disk_percent || 0}%`;
+                    document.getElementById('diskUsed').textContent = `${hw.disk_used_gb || 0} / ${hw.disk_total_gb || 0} GB`;
+                    document.getElementById('diskBar').style.width = `${hw.disk_percent || 0}%`;
+
+                    document.getElementById('netRx').textContent = `${hw.net_rx_mbps || 0} Mbps`;
+                    document.getElementById('netTx').textContent = `${hw.net_tx_mbps || 0} Mbps`;
+                    document.getElementById('netPps').textContent = `${hw.net_rx_pps || 0}`;
+
+                    // Application
+                    document.getElementById('appPipeline').textContent = app.pipeline_running ? 'Running' : 'Stopped';
+                    document.getElementById('appPipeline').className = `badge ${app.pipeline_running ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('appQueue').textContent = app.queue_size || 0;
+                    document.getElementById('appDpm').textContent = app.detections_per_min || 0;
+                    document.getElementById('appUptime').textContent = `${app.uptime_hours || 0}h`;
+
+                    // Security
+                    document.getElementById('secBlocks').textContent = sec.active_blocks || 0;
+                    document.getElementById('secFirewall').textContent = sec.firewall_enabled ? 'Active' : 'Inactive';
+                    document.getElementById('secFirewall').className = `badge ${sec.firewall_enabled ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('secEbpf').textContent = sec.ebpf_enabled ? 'Active' : 'Disabled';
+                    document.getElementById('secEbpf').className = `badge ${sec.ebpf_enabled ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('secAlerts').textContent = sec.alerts_triggered || 0;
+                })
+                .catch(err => console.error('System health error:', err));
+        }
+
+        // eBPF/XDP
+        function loadEbpf() {
+            fetch('/api/ebpf/status')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('ebpfStatus').textContent = d.use_xdp ? 'Active' : d.use_iptables_fallback ? 'Fallback' : 'Disabled';
+                    document.getElementById('ebpfStatus').className = `badge ${d.use_xdp ? 'badge-normal' : d.use_iptables_fallback ? 'badge-warning' : 'badge-warning'}`;
+                    document.getElementById('ebpfXdp').textContent = d.use_xdp ? 'Yes' : 'No';
+                    document.getElementById('ebpfInterface').textContent = d.interface || '--';
+                    document.getElementById('ebpfDropped').textContent = d.xdp_packets_dropped || 0;
+                    document.getElementById('ebpfBcc').textContent = d.bcc_available ? 'Available' : 'Missing';
+                    document.getElementById('ebpfBcc').style.color = d.bcc_available ? 'var(--success)' : 'var(--text-muted)';
+
+                    const bl = document.getElementById('ebpfBlockedList');
+                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
+                        bl.innerHTML = '<div class="empty-state" style="padding: 16px;">No eBPF blocks</div>';
+                    } else {
+                        bl.innerHTML = d.blocked_ips.map(b => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address">${b.ip}</span>
+                                    <span class="ip-reason">${b.reason || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <button class="btn btn-primary btn-sm" onclick="ebpfUnblockIp('${b.ip}')">Unblock</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => console.error('eBPF load error:', err));
+        }
+
+        function ebpfBlockIp() {
+            const ip = document.getElementById('ebpfBlockIp').value.trim();
+            if (!ip) return;
+            fetch('/api/ebpf/block', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip, reason: 'Manual eBPF block'})
+            }).then(() => {
+                document.getElementById('ebpfBlockIp').value = '';
+                loadEbpf();
+                showToast(`eBPF blocked ${ip}`);
+            });
+        }
+
+        function ebpfUnblockIp(ip) {
+            fetch('/api/ebpf/unblock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadEbpf();
+                showToast(`eBPF unblocked ${ip}`);
+            });
+        }
+
+        // DRL Mitigation
+        function loadDrl() {
+            fetch('/api/drl_mitigation/status')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('drlStatus').textContent = d.enabled ? 'Active' : 'Disabled';
+                    document.getElementById('drlStatus').className = `badge ${d.enabled ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('drlToggle').classList.toggle('active', d.enabled);
+                    document.getElementById('drlModel').textContent = d.model_loaded ? 'Yes' : 'No';
+                    document.getElementById('drlModel').className = `badge ${d.model_loaded ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('drlConfidence').textContent = d.confidence_threshold || '--';
+                    document.getElementById('drlDecisions').textContent = (d.stats && d.stats.decisions_made) || 0;
+                    document.getElementById('drlBlocks').textContent = (d.stats && d.stats.blocks_applied) || 0;
+
+                    const bl = document.getElementById('drlBlockedList');
+                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
+                        bl.innerHTML = '<div class="empty-state" style="padding: 16px;">No DRL blocks</div>';
+                    } else {
+                        bl.innerHTML = d.blocked_ips.map(b => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address">${b.ip}</span>
+                                    <span class="ip-reason">${b.reason || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <span class="ip-timer">${b.remaining_min}m</span>
+                                    <button class="btn btn-primary btn-sm" onclick="drlUnblockIp('${b.ip}')">Unblock</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => console.error('DRL load error:', err));
+        }
+
+        function toggleDrl() {
+            const el = document.getElementById('drlToggle');
+            el.classList.toggle('active');
+            fetch('/api/drl_mitigation/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: el.classList.contains('active')})
+            }).then(() => showToast(`DRL mitigation ${el.classList.contains('active') ? 'ON' : 'OFF'}`));
+        }
+
+        function drlUnblockIp(ip) {
+            fetch('/api/drl_mitigation/unblock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadDrl();
+                showToast(`DRL unblocked ${ip}`);
+            });
+        }
+
+        // Alerts
+        function loadAlerts() {
+            fetch('/api/alerts')
+                .then(r => r.json())
+                .then(d => {
+                    const alerts = d.alerts || [];
+                    document.getElementById('alertCount').textContent = `${alerts.length} Alerts`;
+                    document.getElementById('alertList').innerHTML = alerts.length === 0
+                        ? '<div class="empty-state" style="padding: 16px;">No alerts yet</div>'
+                        : alerts.map(a => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address" style="color: ${a.severity === 'critical' ? 'var(--danger)' : a.severity === 'warning' ? 'var(--warning)' : 'var(--text-secondary)'};">[${a.severity.toUpperCase()}] ${a.title}</span>
+                                    <span class="ip-reason">${a.message || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <span style="font-size: 10px; color: var(--text-muted);">${new Date(a.timestamp).toLocaleTimeString()}</span>
+                                    ${!a.acknowledged ? `<button class="btn btn-ghost btn-sm" onclick="ackAlert('${a.id}')">Ack</button>` : '<span style="font-size: 10px; color: var(--success);">✓</span>'}
+                                </div>
+                            </div>
+                        `).join('');
+                })
+                .catch(err => console.error('Alerts load error:', err));
+
+            fetch('/api/alerts/stats')
+                .then(r => r.json())
+                .then(s => {
+                    document.getElementById('alertTotal').textContent = s.total_alerts || 0;
+                    document.getElementById('alertCritical').textContent = (s.alerts_by_severity && s.alerts_by_severity.critical) || 0;
+                    document.getElementById('alertWarning').textContent = (s.alerts_by_severity && s.alerts_by_severity.warning) || 0;
+                    document.getElementById('alertChannels').textContent = (s.channels || []).join(', ') || '--';
+                })
+                .catch(err => console.error('Alert stats error:', err));
+        }
+
+        function testAlert() {
+            fetch('/api/alerts/test', {method: 'POST'})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 'sent') showToast('Test alert sent');
+                    else showToast('Test alert failed', 'error');
+                    loadAlerts();
+                });
+        }
+
+        function clearAlerts() {
+            fetch('/api/alerts/clear', {method: 'POST'})
+                .then(() => {
+                    showToast('Alerts cleared');
+                    loadAlerts();
+                });
+        }
+
+        function ackAlert(id) {
+            fetch('/api/alerts/acknowledge', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({alert_id: id})
+            }).then(() => loadAlerts());
         }
     </script>
 </body>

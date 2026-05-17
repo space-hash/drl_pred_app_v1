@@ -24,7 +24,7 @@ echo "========================================="
 echo -e "${NC}"
 
 # --- Step 1: System Dependencies ---
-echo -e "${YELLOW}[1/7] Installing system dependencies...${NC}"
+echo -e "${YELLOW}[1/8] Installing system dependencies...${NC}"
 apt-get update -qq
 apt-get install -y -qq \
     python3-pip \
@@ -40,8 +40,22 @@ apt-get install -y -qq \
     > /dev/null 2>&1
 echo -e "${GREEN}✓ System packages installed${NC}"
 
+# Optional: eBPF dependencies
+echo -e "${YELLOW}    Checking eBPF support...${NC}"
+if uname -r | grep -q "aws"; then
+    echo -e "${YELLOW}    AWS kernel detected - eBPF may require custom kernel${NC}"
+else
+    apt-get install -y -qq \
+        linux-headers-$(uname -r) \
+        llvm \
+        clang \
+        libelf-dev \
+        > /dev/null 2>&1 || true
+    echo -e "${GREEN}    ✓ eBPF dependencies installed (optional)${NC}"
+fi
+
 # --- Step 2: Auto-detect Network Interface ---
-echo -e "${YELLOW}[2/7] Detecting network interface...${NC}"
+echo -e "${YELLOW}[2/8] Detecting network interface...${NC}"
 # Prefer interfaces that are UP and have traffic (RX packets > 0)
 INTERFACE=$(ip -o link show up 2>/dev/null | awk -F': ' '$2 !~ /lo|docker|veth|br-/ {print $2}' | sed 's/@.*//' | while read iface; do
     rx=$(ip -s link show "$iface" 2>/dev/null | awk '/RX:/{getline; print $2}')
@@ -61,7 +75,7 @@ else
 fi
 
 # --- Step 3: Setup Python Environment ---
-echo -e "${YELLOW}[3/7] Setting up Python environment...${NC}"
+echo -e "${YELLOW}[3/8] Setting up Python environment...${NC}"
 cd "$APP_DIR"
 
 if [ ! -d ".venv" ]; then
@@ -73,7 +87,7 @@ pip install -r requirements.txt -q
 echo -e "${GREEN}✓ Python dependencies installed${NC}"
 
 # --- Step 4: Configure .env ---
-echo -e "${YELLOW}[4/7] Configuring application...${NC}"
+echo -e "${YELLOW}[4/8] Configuring application...${NC}"
 if [ ! -f ".env" ]; then
     cp .env.example .env
 fi
@@ -86,7 +100,7 @@ sed -i "s/FLASK_HOST=.*/FLASK_HOST=0.0.0.0/" .env
 echo -e "${GREEN}✓ Configured for ${INTERFACE} (production mode)${NC}"
 
 # --- Step 5: Create Directories ---
-echo -e "${YELLOW}[5/7] Creating directories...${NC}"
+echo -e "${YELLOW}[5/8] Creating directories...${NC}"
 mkdir -p capapp/capture_output/{in_progress,error}
 mkdir -p capapp/features_output
 mkdir -p capapp/logs
@@ -95,7 +109,7 @@ mkdir -p detection_module/trained_models
 echo -e "${GREEN}✓ Directories ready${NC}"
 
 # --- Step 6: Setup Systemd Service ---
-echo -e "${YELLOW}[6/7] Installing systemd service...${NC}"
+echo -e "${YELLOW}[6/8] Installing systemd service...${NC}"
 
 PYTHON_BIN="$(pwd)/.venv/bin/python3"
 
