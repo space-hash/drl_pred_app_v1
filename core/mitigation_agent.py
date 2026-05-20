@@ -215,27 +215,61 @@ class MitigationAgent:
         # Multi-vector detector
         self.vector_detector = MultiVectorDetector()
 
+        # Batch save timer (avoid excessive disk I/O)
+        self._save_timer: Optional[threading.Timer] = None
+        self._save_pending = False
+
+        # Auto-whitelist localhost and loopback IPs to prevent self-blocking
+        self._whitelist = {
+            "127.0.0.1", "::1", "localhost", "0.0.0.0",
+        }
+        # Add local machine IPs to whitelist
+        import socket
+        try:
+            hostname = socket.gethostname()
+            local_ips = socket.getaddrinfo(hostname, None)
+            for ip_info in local_ips:
+                self._whitelist.add(ip_info[4][0])
+        except Exception:
+            pass
+        logger.info(f"Mitigation whitelist initialized with {len(self._whitelist)} IPs: {sorted(self._whitelist)}")
+
         # Initialize firewall if enabled
         if self.use_iptables:
             FirewallManager.init_firewall()
             self._restore_blocks()
 
     def _save_blocks(self):
-        """Persist blocked IPs to disk."""
-        try:
-            data = {
-                ip: {
-                    "expiry": info["expiry"].isoformat(),
-                    "reason": info["reason"],
-                    "timestamp": info["timestamp"].isoformat(),
+        """Persist blocked IPs to disk (batched to avoid excessive I/O)."""
+        with self._lock:
+            if self._save_timer and self._save_timer.is_alive():
+                self._save_pending = True
+                return
+            self._save_pending = False
+
+        def _do_save():
+            try:
+                data = {
+                    ip: {
+                        "expiry": info["expiry"].isoformat(),
+                        "reason": info["reason"],
+                        "timestamp": info["timestamp"].isoformat(),
+                    }
+                    for ip, info in self._blocked_ips.items()
+                    if info["expiry"] > datetime.now()
                 }
-                for ip, info in self._blocked_ips.items()
-                if info["expiry"] > datetime.now()
-            }
-            BLOCKS_FILE.parent.mkdir(parents=True, exist_ok=True)
-            BLOCKS_FILE.write_text(json.dumps(data, indent=2))
-        except Exception as e:
-            logger.error(f"Failed to save blocks: {e}")
+                BLOCKS_FILE.parent.mkdir(parents=True, exist_ok=True)
+                BLOCKS_FILE.write_text(json.dumps(data, indent=2))
+            except Exception as e:
+                logger.error(f"Failed to save blocks: {e}")
+            finally:
+                with self._lock:
+                    self._save_timer = None
+
+        with self._lock:
+            self._save_timer = threading.Timer(5.0, _do_save)
+            self._save_timer.daemon = True
+            self._save_timer.start()
 
     def _restore_blocks(self):
         """Restore blocked IPs from disk on startup."""

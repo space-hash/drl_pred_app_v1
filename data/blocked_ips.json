@@ -1,1 +1,72 @@
-{}
+{
+  "10.160.255.207": {
+    "expiry": "2026-05-19T21:04:59.068661",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:04:59.068663"
+  },
+  "34.107.243.93": {
+    "expiry": "2026-05-19T21:05:45.238053",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:05:45.238057"
+  },
+  "104.208.16.88": {
+    "expiry": "2026-05-19T21:06:00.563580",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:06:00.563581"
+  },
+  "2603:1061:14:154::1": {
+    "expiry": "2026-05-19T21:09:43.397331",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:09:43.397333"
+  },
+  "2401:4900:4fdf:86d5:59d8:c400:e71f:3a16": {
+    "expiry": "2026-05-19T21:10:27.690751",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:10:27.690752"
+  },
+  "2404:6800:4009:813::200a": {
+    "expiry": "2026-05-19T21:11:46.412292",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:11:46.412293"
+  },
+  "10.160.255.48": {
+    "expiry": "2026-05-19T21:12:11.426705",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:12:11.426707"
+  },
+  "2001:4860:482d:7700::": {
+    "expiry": "2026-05-19T21:12:12.127470",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:12:12.127473"
+  },
+  "2404:6800:4007:839::200e": {
+    "expiry": "2026-05-19T21:12:13.364049",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:12:13.364051"
+  },
+  "2404:6800:4000:1017::88": {
+    "expiry": "2026-05-19T21:12:14.664328",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:12:14.664330"
+  },
+  "34.111.211.209": {
+    "expiry": "2026-05-19T21:12:25.770887",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:12:25.770891"
+  },
+  "2401:4900:4fdf:86d5::32": {
+    "expiry": "2026-05-19T21:12:27.507618",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:12:27.507619"
+  },
+  "142.251.153.119": {
+    "expiry": "2026-05-19T21:13:20.890389",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:13:20.890391"
+  },
+  "142.251.223.238": {
+    "expiry": "2026-05-19T21:13:21.067576",
+    "reason": "Rate limit: 51 packets/min (limit=50)",
+    "timestamp": "2026-05-19T20:13:21.067578"
+  }
+}

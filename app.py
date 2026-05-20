@@ -16,6 +16,7 @@ from core.controller import (
     controller,
 )
 from capapp.config.settings import config
+from capapp.utils.logger import logger as app_logger
 from core.system_monitor import SystemMonitor
 
 app = Flask(__name__)
@@ -58,7 +59,7 @@ def start() -> Any:
     if is_pipeline_running():
         return jsonify({"status": "error", "message": "Pipeline already running"}), 400
     if start_pipeline():
-        return redirect("/")
+        return jsonify({"status": "success", "message": "Pipeline started"})
     return jsonify({"status": "error", "message": "Failed to start pipeline"}), 500
 
 
@@ -67,7 +68,7 @@ def stop() -> Any:
     if not is_pipeline_running():
         return jsonify({"status": "error", "message": "Pipeline not running"}), 400
     if stop_pipeline():
-        return redirect("/")
+        return jsonify({"status": "success", "message": "Pipeline stopped"})
     return jsonify({"status": "error", "message": "Failed to stop pipeline"}), 500
 
 
@@ -166,7 +167,7 @@ def api_receive_predictions():
     data = request.get_json()
     if not data:
         return jsonify({"status": "error", "message": "No data provided"}), 400
-    logger.debug(f"Received prediction data for file: {data.get('filename', 'unknown')}")
+    app_logger.debug(f"Received prediction data for file: {data.get('filename', 'unknown')}")
     return jsonify({"status": "success", "received": True})
 
 
@@ -175,7 +176,7 @@ def api_receive_raw_data():
     data = request.get_json()
     if not data:
         return jsonify({"status": "error", "message": "No data provided"}), 400
-    logger.debug(f"Received raw data for file: {data.get('filename', 'unknown')}")
+    app_logger.debug(f"Received raw data for file: {data.get('filename', 'unknown')}")
     return jsonify({"status": "success", "received": True})
 
 
@@ -419,7 +420,7 @@ def api_alerts_test():
 
 def graceful_shutdown(signum, frame):
     logger = logging.getLogger(__name__)
-    logger.info(f"Received signal {signum}, shutting down gracefully...")
+    app_logger.info(f"Received signal {signum}, shutting down gracefully...")
     if is_pipeline_running():
         stop_pipeline()
     sys.exit(0)

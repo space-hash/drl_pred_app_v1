@@ -28,6 +28,7 @@ class PipelineController:
         self.ebpf_manager = None
         self.drl_mitigation = None
         self.alert_manager = None
+        self.flow_tracker = None
 
         self.ddos_count = 0
         self.normal_count = 0
@@ -64,15 +65,17 @@ class PipelineController:
                 logger.warning("eBPF/XDP initialization failed")
 
         if config.DRL_MITIGATION_ENABLED:
+            from core.flow_tracker import FlowTracker
             from core.drl_mitigation import DRLMitigationAgent
+            self.flow_tracker = FlowTracker()
             self.drl_mitigation = DRLMitigationAgent(
                 model_path=config.DRL_MITIGATION_MODEL_PATH,
                 confidence_threshold=config.DRL_MITIGATION_CONFIDENCE_THRESHOLD,
                 block_duration_minutes=config.DRL_MITIGATION_BLOCK_DURATION_MINUTES,
-                feature_window_size=config.DRL_MITIGATION_FEATURE_WINDOW_SIZE,
                 enabled=True,
+                flow_tracker=self.flow_tracker,
             )
-            logger.info("DRL mitigation agent initialized (model=%s, confidence=%.2f)",
+            logger.info("DRL mitigation agent initialized with flow tracker (model=%s, confidence=%.2f)",
                        config.DRL_MITIGATION_MODEL_PATH, config.DRL_MITIGATION_CONFIDENCE_THRESHOLD)
 
         if config.ALERTING_ENABLED:
@@ -88,7 +91,7 @@ class PipelineController:
                 current_model_path=self.model_path,
                 update_interval_hours=config.MODEL_UPDATE_INTERVAL_HOURS,
             )
-            self.pipeline = DDoSPipeline(mitigation_agent=self.mitigation_agent)
+            self.pipeline = DDoSPipeline(mitigation_agent=self.mitigation_agent, flow_tracker=self.flow_tracker)
             self.detect = LocalPredictionPipeline(
                 model_path=self.model_path,
                 processed_dir=str(config.PROCESSED_FEATURES_DIR),
@@ -170,7 +173,12 @@ class PipelineController:
             if self.drl_mitigation:
                 self.drl_mitigation.cleanup_expired()
 
+            # Wait for pipeline threads to finish before clearing references
             with self.lock:
+                threads = getattr(self, 'pipeline_threads', [])
+                for t in threads:
+                    if t.is_alive():
+                        t.join(timeout=5)
                 self.pipeline_active.clear()
                 self.pipeline = None
                 self.detect = None
@@ -222,6 +230,7 @@ class PipelineController:
                 "ebpf_enabled": self.ebpf_manager is not None,
                 "drl_mitigation_enabled": self.drl_mitigation is not None,
                 "alerting_enabled": self.alert_manager is not None,
+                "flow_tracker_active": self.flow_tracker.get_active_flows() if self.flow_tracker else 0,
             }
 
     def get_recent_detections(self, limit: int = 20) -> List[Dict[str, Any]]:
@@ -302,17 +311,6 @@ class PipelineController:
             if self.ebpf_manager and self.ebpf_manager.is_blocked(src_ip):
                 blocked_by_any = True
 
-            if blocked_by_any:
-                if status == "DDoS":
-                    self.ddos_count += 1
-                elif status == "Suspicious":
-                    self.suspicious_count += 1
-                else:
-                    self.normal_count += 1
-                if self.mitigation_agent:
-                    self.mitigation_agent.on_detection({**detection_data, "src_ip": src_ip, "dst_ip": dst_ip})
-                return
-
             if status == "DDoS":
                 self.ddos_count += 1
             elif status == "Suspicious":
@@ -320,48 +318,38 @@ class PipelineController:
             else:
                 self.normal_count += 1
 
-            detection = {
-                "id": str(uuid.uuid4()),
-                "timestamp": datetime.now().isoformat(),
-                "src_ip": src_ip,
-                "dst_ip": dst_ip,
-                "protocol": protocol,
-                "duration": round(duration_sec, 4),
-                "status": status,
-                "severity": severity,
-                "confidence": round(confidence, 4),
-                "flow_id": detection_data.get("Flow ID", "unknown"),
-                "packets": int(
-                    detection_data.get("Total Fwd Packets", 0) or 0
-                )
-                + int(detection_data.get("Total Bwd Packets", 0) or 0),
-                "bytes": int(
-                    detection_data.get("Total Length of Fwd Packets", 0) or 0
-                )
-                + int(detection_data.get("Total Length of Bwd Packets", 0) or 0),
-            }
+            # Only add to recent_detections if not blocked
+            if not blocked_by_any:
+                detection = {
+                    "id": str(uuid.uuid4()),
+                    "timestamp": datetime.now().isoformat(),
+                    "src_ip": src_ip,
+                    "dst_ip": dst_ip,
+                    "protocol": protocol,
+                    "duration": round(duration_sec, 4),
+                    "status": status,
+                    "severity": severity,
+                    "confidence": round(confidence, 4),
+                    "flow_id": detection_data.get("Flow ID", "unknown"),
+                    "packets": int(
+                        detection_data.get("Total Fwd Packets", 0) or 0
+                    )
+                    + int(detection_data.get("Total Bwd Packets", 0) or 0),
+                    "bytes": int(
+                        detection_data.get("Total Length of Fwd Packets", 0) or 0
+                    )
+                    + int(detection_data.get("Total Length of Bwd Packets", 0) or 0),
+                }
 
-            self.recent_detections.append(detection)
-            if len(self.recent_detections) > 200:
-                self.recent_detections = self.recent_detections[-100:]
+                self.recent_detections.append(detection)
+                if len(self.recent_detections) > 200:
+                    self.recent_detections = self.recent_detections[-100:]
 
-        # Run through mitigation agents
-        if self.mitigation_agent:
-            self.mitigation_agent.on_detection(detection)
+                # Run through mitigation agents (only for non-blocked IPs)
+                if self.mitigation_agent:
+                    self.mitigation_agent.on_detection(detection)
 
-        # Run through DRL mitigation
-        if self.drl_mitigation:
-            blocked_ip = self.drl_mitigation.on_packet(src_ip, detection_data)
-            if blocked_ip and self.alert_manager:
-                self.alert_manager.send_alert(
-                    alert_type="drl_block",
-                    severity="critical",
-                    title=f"DRL Auto-Block: {blocked_ip}",
-                    message=f"IP {blocked_ip} blocked by DRL model with high confidence",
-                    metadata={"ip": blocked_ip, "detection": detection},
-                )
-
-        # Send alert for DDoS detections
+        # Send alert for DDoS detections (outside lock to avoid blocking)
         if self.alert_manager and status == "DDoS" and confidence >= 0.8:
             self.alert_manager.send_alert(
                 alert_type="ddos_detection",

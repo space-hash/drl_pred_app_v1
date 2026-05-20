@@ -18,7 +18,7 @@ from typing import Optional, Tuple, Dict, Any, List, Callable
 
 logger = logging.getLogger("LocalPredictionPipeline")
 
-EXPECTED_FEATURE_COUNT = 81
+EXPECTED_FEATURE_COUNT = 81  # 84 total - 3 metadata columns (Flow ID, Timestamp, Fwd Header Length.1)
 MAX_PROCESSED_FILES_TRACKED = 5000
 
 
@@ -37,7 +37,7 @@ class LocalPredictionPipeline:
         self.model_path = model_path
         self.device = self._select_device(force_cpu)
         self.model = self._load_model(model_path)
-        self.scaler = self._load_scaler(model_path)
+        self.scaler: Optional[StandardScaler] = self._load_scaler(model_path)
         self.processed_dir = Path(processed_dir)
         self.output_dir = Path(output_dir)
         self.file_queue = queue.Queue(maxsize=queue_maxsize)
@@ -83,15 +83,14 @@ class LocalPredictionPipeline:
             logger.error(f"Model loading failed: {e}")
             raise RuntimeError(f"Could not load model: {e}")
 
-    def _load_scaler(self, model_path: str) -> StandardScaler:
+    def _load_scaler(self, model_path: str) -> Optional[StandardScaler]:
         scaler_path = Path(model_path).with_suffix(".scaler.pkl")
         if scaler_path.exists():
             scaler = joblib.load(str(scaler_path))
             logger.info(f"Loaded scaler from {scaler_path}")
             return scaler
-        raise FileNotFoundError(
-            f"Scaler not found at {scaler_path}. Run training first to generate a scaler."
-        )
+        logger.warning(f"Scaler not found at {scaler_path}. Predictions will run without feature scaling.")
+        return None
 
     def _setup_directories(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -133,7 +132,10 @@ class LocalPredictionPipeline:
         col_means = df.mean()
         df = df.fillna(col_means).fillna(0)
 
-        X_scaled = self.scaler.transform(df)
+        if self.scaler is not None:
+            X_scaled = self.scaler.transform(df)
+        else:
+            X_scaled = df.values
         return X_scaled, output_df
 
     def _postprocess_results(

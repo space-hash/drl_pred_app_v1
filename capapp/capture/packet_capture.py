@@ -17,7 +17,7 @@ class PacketCapturer:
     Captures network traffic directly to disk and rotates .pcap files.
     This component is fully independent and does not use in-memory queues.
     """
-    def __init__(self, packet_callback=None):
+    def __init__(self, packet_callback=None, flow_tracker=None):
         self.shutdown_event = threading.Event()
         self.capture_thread = None
         self.packets = []
@@ -27,8 +27,11 @@ class PacketCapturer:
         self.interface = self._validate_interface()
         self._write_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="PCAPWriter")
         self.packet_callback = packet_callback
+        self.flow_tracker = flow_tracker
         self._packet_count = 0
         self._blocked_ips = set()
+        self._seen_flows = set()  # Track direction of first packet per flow
+        self._max_seen_flows = 50000  # Memory limit for flow tracking
 
     def _validate_interface(self) -> str:
         """
@@ -67,43 +70,88 @@ class PacketCapturer:
                 self.packets.pop(0)
                 self.packets.append(packet)
 
-        if self.packet_callback:
+        if self.packet_callback or self.flow_tracker:
             try:
-                src_ip = None
+                src_ip = dst_ip = None
+                src_port = dst_port = 0
                 protocol = 0
-                dst_port = 0
                 flags = 0
+                pkt_len = len(packet)
+                timestamp = float(packet.time)
+                tcp_header_len = 0
+                tcp_window = 0
 
                 if packet.haslayer("IP"):
                     src_ip = packet["IP"].src
+                    dst_ip = packet["IP"].dst
                     protocol = packet["IP"].proto
                 elif packet.haslayer("IPv6"):
                     src_ip = packet["IPv6"].src
+                    dst_ip = packet["IPv6"].dst
                     protocol = packet["IPv6"].nh
 
                 if packet.haslayer("TCP"):
+                    src_port = packet["TCP"].sport
                     dst_port = packet["TCP"].dport
                     flags = int(packet["TCP"].flags)
+                    tcp_header_len = len(packet["TCP"])
+                    tcp_window = packet["TCP"].window
                 elif packet.haslayer("UDP"):
+                    src_port = packet["UDP"].sport
                     dst_port = packet["UDP"].dport
+
+                # Feed to flow tracker
+                if self.flow_tracker and src_ip and dst_ip:
+                    flow_key = (src_ip, dst_ip, src_port, dst_port, protocol)
+                    is_forward = flow_key not in self._seen_flows
+                    if is_forward:
+                        self._seen_flows.add(flow_key)
+                        # Also add reverse key to avoid duplicate tracking
+                        self._seen_flows.add((dst_ip, src_ip, dst_port, src_port, protocol))
+                        
+                        # Prevent memory leak: evict old entries if limit exceeded
+                        if len(self._seen_flows) > self._max_seen_flows:
+                            # Clear oldest 50% of entries
+                            to_remove = list(self._seen_flows)[:len(self._seen_flows)//2]
+                            for key in to_remove:
+                                self._seen_flows.discard(key)
+
+                    triggered_key = self.flow_tracker.update(
+                        src_ip=src_ip, dst_ip=dst_ip,
+                        src_port=src_port, dst_port=dst_port,
+                        protocol=protocol, packet_length=pkt_len,
+                        timestamp=timestamp, tcp_flags=flags,
+                        tcp_header_len=tcp_header_len, tcp_window=tcp_window,
+                        is_forward=is_forward,
+                    )
+
+                    # If flow tracker triggered inference, notify callback
+                    if triggered_key and hasattr(self.packet_callback, '__self__'):
+                        agent = self.packet_callback.__self__
+                        if hasattr(agent, 'on_flow'):
+                            blocked_ip = agent.on_flow(triggered_key)
+                            if blocked_ip:
+                                self._blocked_ips.add(blocked_ip)
+                                logger.warning(f"DRL-blocked {blocked_ip}")
 
                 if src_ip and src_ip not in self._blocked_ips:
                     # Rate-based blocking
-                    blocked = self.packet_callback(src_ip)
-                    if blocked:
-                        self._blocked_ips.add(blocked)
-                        logger.warning(f"Rate-blocked {blocked}")
+                    if self.packet_callback:
+                        blocked = self.packet_callback(src_ip)
+                        if blocked:
+                            self._blocked_ips.add(blocked)
+                            logger.warning(f"Rate-blocked {blocked}")
 
-                    # Multi-vector analysis
-                    if hasattr(self.packet_callback, '__self__'):
-                        agent = self.packet_callback.__self__
-                        if hasattr(agent, 'on_packet_vector'):
-                            attack = agent.on_packet_vector(src_ip, protocol, dst_port, flags)
-                            if attack:
-                                self._blocked_ips.add(src_ip)
-                                logger.warning(f"Vector-blocked {src_ip}: {attack}")
-            except Exception:
-                pass
+                        # Multi-vector analysis
+                        if hasattr(self.packet_callback, '__self__'):
+                            agent = self.packet_callback.__self__
+                            if hasattr(agent, 'on_packet_vector'):
+                                attack = agent.on_packet_vector(src_ip, protocol, dst_port, flags)
+                                if attack:
+                                    self._blocked_ips.add(src_ip)
+                                    logger.warning(f"Vector-blocked {src_ip}: {attack}")
+            except Exception as e:
+                logger.error(f"Packet handler error: {e}")
 
     def _rotation_manager(self):
         """
@@ -165,6 +213,7 @@ class PacketCapturer:
         self.packets = []
         self._blocked_ips = set()
         self._packet_count = 0
+        self._seen_flows = set()
 
         manager_thread = threading.Thread(target=self._rotation_manager, name="RotationManager")
         manager_thread.daemon = True

@@ -19,6 +19,7 @@ import threading
 import logging
 import json
 import smtplib
+import uuid
 import requests
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Callable
@@ -43,7 +44,7 @@ class Alert:
         message: str,
         metadata: Optional[Dict[str, Any]] = None,
     ):
-        self.id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{alert_type}_{severity}"
+        self.id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{alert_type}_{severity}_{uuid.uuid4().hex[:8]}"
         self.type = alert_type
         self.severity = severity
         self.title = title

@@ -17,6 +17,7 @@ import logging
 import subprocess
 import json
 import ipaddress
+import socket
 from pathlib import Path
 from typing import Dict, Any, Optional, Set, List
 from datetime import datetime, timedelta
@@ -239,6 +240,16 @@ class EbpfManager:
         self._blocked_ips: Dict[str, Dict[str, Any]] = {}
         self._stats = {"packets_dropped": 0, "bytes_dropped": 0, "blocks_added": 0, "blocks_removed": 0}
 
+        # Auto-whitelist localhost and local IPs to prevent self-blocking
+        self._whitelist: Set[str] = {"127.0.0.1", "::1", "localhost", "0.0.0.0"}
+        try:
+            hostname = socket.gethostname()
+            local_ips = socket.getaddrinfo(hostname, None)
+            for ip_info in local_ips:
+                self._whitelist.add(ip_info[4][0])
+        except Exception:
+            pass
+
     def initialize(self) -> bool:
         """Initialize eBPF/XDP or fall back to iptables."""
         if self.use_xdp and BCC_AVAILABLE:
@@ -269,6 +280,24 @@ class EbpfManager:
 
     def block_ip(self, ip: str, reason: str = "eBPF block") -> bool:
         """Block an IP using XDP or iptables fallback."""
+        # Never block localhost or local IPs
+        if ip in self._whitelist:
+            logger.debug(f"Ignoring block request for whitelisted IP: {ip}")
+            return False
+
+        # Try to block at firewall level first
+        success = False
+        if self.xdp_program and self.xdp_program.attached:
+            success = self.xdp_program.block_ip(ip)
+        elif self.use_iptables_fallback:
+            from core.mitigation_agent import FirewallManager
+            success = FirewallManager.block_ip(ip)
+
+        if not success:
+            logger.warning(f"Failed to block {ip} at firewall level")
+            return False
+
+        # Only record as blocked if firewall rule succeeded
         with self._lock:
             now = datetime.now()
             self._blocked_ips[ip] = {
@@ -278,14 +307,8 @@ class EbpfManager:
             self._stats["blocks_added"] += 1
             self._save_blocks()
 
-        if self.xdp_program and self.xdp_program.attached:
-            return self.xdp_program.block_ip(ip)
-        elif self.use_iptables_fallback:
-            from core.mitigation_agent import FirewallManager
-            return FirewallManager.block_ip(ip)
-
-        logger.warning(f"No filtering method available to block {ip}")
-        return False
+        logger.info(f"Successfully blocked {ip}")
+        return True
 
     def unblock_ip(self, ip: str) -> bool:
         """Unblock an IP."""

@@ -11,13 +11,14 @@ class DDoSPipeline:
     The master orchestrator for the disk-based DDoS detection pipeline.
     Initializes, starts, and stops all components in the correct order.
     """
-    def __init__(self, mitigation_agent=None):
+    def __init__(self, mitigation_agent=None, flow_tracker=None):
         logger.info("Initializing pipeline components...")
         self.mitigation_agent = mitigation_agent
+        self.flow_tracker = flow_tracker
         packet_cb = None
         if mitigation_agent:
             packet_cb = mitigation_agent.on_packet
-        self.capturer = PacketCapturer(packet_callback=packet_cb)
+        self.capturer = PacketCapturer(packet_callback=packet_cb, flow_tracker=flow_tracker)
         self.dispatcher = FileDispatcher()
         self.components = [self.capturer, self.dispatcher]
         self._shutdown_event = threading.Event()
