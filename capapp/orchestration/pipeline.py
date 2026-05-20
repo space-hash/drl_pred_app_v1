@@ -1,23 +1,24 @@
 # capapp/orchestration/pipeline.py
-"""
-Master orchestrator for the disk-based DDoS detection pipeline.
-Initializes, starts, and stops all components in the correct order.
-"""
+
 import time
 import threading
 from capapp.utils.logger import logger
 from capapp.capture.packet_capture import PacketCapturer
 from capapp.processing.dispatcher import FileDispatcher
 
-
 class DDoSPipeline:
-    """Orchestrates packet capture, dispatching, and feature extraction."""
-
-    def __init__(self, mitigation_agent=None):
+    """
+    The master orchestrator for the disk-based DDoS detection pipeline.
+    Initializes, starts, and stops all components in the correct order.
+    """
+    def __init__(self, mitigation_agent=None, flow_tracker=None):
         logger.info("Initializing pipeline components...")
         self.mitigation_agent = mitigation_agent
-        packet_cb = mitigation_agent.on_packet if mitigation_agent else None
-        self.capturer = PacketCapturer(packet_callback=packet_cb)
+        self.flow_tracker = flow_tracker
+        packet_cb = None
+        if mitigation_agent:
+            packet_cb = mitigation_agent.on_packet
+        self.capturer = PacketCapturer(packet_callback=packet_cb, flow_tracker=flow_tracker)
         self.dispatcher = FileDispatcher()
         self.components = [self.capturer, self.dispatcher]
         self._shutdown_event = threading.Event()
@@ -38,7 +39,7 @@ class DDoSPipeline:
             try:
                 component.stop()
             except Exception as e:
-                logger.error("Error stopping component %s: %s", component.__class__.__name__, e)
+                logger.error(f"Error stopping component {component.__class__.__name__}: {e}")
         logger.info("Pipeline shutdown complete.")
 
     def run(self):
@@ -51,16 +52,3 @@ class DDoSPipeline:
             logger.info("KeyboardInterrupt received. Initiating shutdown...")
         finally:
             self.stop()
-
-    def get_status(self):
-        """Returns the current status of all pipeline components."""
-        return {
-            "capturer": {
-                "interface": self.capturer.interface,
-                "running": self.capturer.capture_thread.is_alive() if self.capturer.capture_thread else False,
-                "buffer_size": len(self.capturer.packets),
-            },
-            "dispatcher": {
-                "running": self.dispatcher.dispatcher_thread.is_alive() if self.dispatcher.dispatcher_thread else False,
-            },
-        }

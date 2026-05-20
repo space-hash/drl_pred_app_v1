@@ -3,196 +3,1206 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DDoS Detection Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>CYBERSHIELD // DDoS Threat Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        .card { margin-bottom: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        .alert-critical { background-color: #ff4444; color: white; }
-        .alert-warning { background-color: #ffbb33; color: black; }
-        .alert-info { background-color: #33b5e5; color: white; }
-        .stat-card { text-align: center; padding: 15px; border-radius: 5px; color: white; }
-        #resultsTable { font-size: 0.9rem; }
-        .table-container { max-height: 500px; overflow-y: auto; }
-        #manualUpdateBtn { transition: all 0.3s ease; }
-        #manualUpdateBtn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        #updateStatus { min-height: 20px; transition: all 0.3s ease; }
-        .privilege-warning { background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 5px; padding: 15px; margin-bottom: 20px; }
-        .list-item { padding: 4px 8px; margin-bottom: 4px; border-radius: 4px; background: #f8f9fa; }
+        :root {
+            --bg-deep: #030308;
+            --bg-primary: #06060f;
+            --bg-secondary: #0a0a18;
+            --bg-card: rgba(12, 12, 30, 0.6);
+            --bg-glass: rgba(15, 15, 35, 0.4);
+            --border: rgba(99, 102, 241, 0.15);
+            --border-hover: rgba(99, 102, 241, 0.4);
+            --text-primary: #f0f0ff;
+            --text-secondary: #a0a0c0;
+            --text-muted: #5a5a7a;
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.5);
+            --accent-cyan: #06b6d4;
+            --accent-cyan-glow: rgba(6, 182, 212, 0.5);
+            --accent-purple: #a855f7;
+            --accent-purple-glow: rgba(168, 85, 247, 0.5);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.4);
+            --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.4);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.4);
+            --info: #3b82f6;
+            --info-glow: rgba(59, 130, 246, 0.4);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', 'Space Grotesk', sans-serif;
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Animated Background Grid */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(60px, 60px); }
+        }
+
+        /* Ambient Glow Orbs */
+        .glow-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.15;
+            z-index: 0;
+            animation: orbFloat 15s ease-in-out infinite alternate;
+        }
+
+        .glow-orb-1 {
+            width: 600px;
+            height: 600px;
+            background: var(--accent);
+            top: -200px;
+            right: -200px;
+        }
+
+        .glow-orb-2 {
+            width: 500px;
+            height: 500px;
+            background: var(--accent-cyan);
+            bottom: -150px;
+            left: -150px;
+            animation-delay: -5s;
+        }
+
+        .glow-orb-3 {
+            width: 400px;
+            height: 400px;
+            background: var(--accent-purple);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: -10s;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+            100% { transform: translate(0, 0) scale(1); }
+        }
+
+        /* Scanline Effect */
+        .scanline {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.03) 2px,
+                rgba(0, 0, 0, 0.03) 4px
+            );
+        }
+
+        /* Layout */
+        .app-layout {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+            overflow-y: auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 8px 24px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 28px;
+        }
+
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            box-shadow: 0 0 20px var(--accent-glow);
+            animation: logoPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { box-shadow: 0 0 20px var(--accent-glow); }
+            50% { box-shadow: 0 0 40px var(--accent-glow), 0 0 60px rgba(99, 102, 241, 0.2); }
+        }
+
+        .logo-text {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-text span {
+            background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .logo-subtitle {
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .nav-section {
+            margin-bottom: 28px;
+        }
+
+        .nav-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-muted);
+            padding: 0 12px;
+            margin-bottom: 10px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--accent);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .nav-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--text-primary);
+        }
+
+        .nav-item:hover::before {
+            transform: scaleY(1);
+        }
+
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent);
+        }
+
+        .nav-item.active::before {
+            transform: scaleY(1);
+        }
+
+        .nav-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 20px 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            transition: var(--transition);
+        }
+
+        .status-badge.active {
+            border-color: var(--success);
+            box-shadow: 0 0 15px var(--success-glow);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: var(--transition);
+        }
+
+        .status-dot.active {
+            background: var(--success);
+            box-shadow: 0 0 12px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .status-text {
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 24px 28px 48px;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .header-left h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-left p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 6px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .btn:hover::after {
+            opacity: 1;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-cyan));
+            color: white;
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 8px 30px var(--accent-glow);
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #dc2626);
+            color: white;
+            box-shadow: 0 4px 20px var(--danger-glow);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 8px 30px var(--danger-glow);
+            transform: translateY(-2px);
+        }
+
+        .btn-ghost {
+            background: var(--bg-glass);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-ghost:hover {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--border-hover);
+            color: var(--text-primary);
+        }
+
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        /* Privilege Warning */
+        .privilege-warning {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            color: var(--warning);
+            backdrop-filter: blur(10px);
+            animation: warningPulse 3s ease-in-out infinite;
+        }
+
+        @keyframes warningPulse {
+            0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+            50% { border-color: rgba(245, 158, 11, 0.6); }
+        }
+
+        .privilege-warning code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 18px 20px;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card.danger:hover { box-shadow: 0 12px 40px var(--danger-glow); }
+        .stat-card.success:hover { box-shadow: 0 12px 40px var(--success-glow); }
+        .stat-card.warning:hover { box-shadow: 0 12px 40px var(--warning-glow); }
+
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .stat-icon.info { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); }
+        .stat-icon.success { background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2); }
+        .stat-icon.warning { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2); }
+        .stat-icon.danger { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2); }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -2px;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1;
+        }
+
+        .stat-value.danger { color: var(--danger); text-shadow: 0 0 20px var(--danger-glow); }
+        .stat-value.success { color: var(--success); text-shadow: 0 0 20px var(--success-glow); }
+        .stat-value.warning { color: var(--warning); text-shadow: 0 0 20px var(--warning-glow); }
+
+        .stat-change {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(99, 102, 241, 0.03);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        /* Grid Layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* Detection Table */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.2);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        td {
+            padding: 16px;
+            font-size: 14px;
+            border-bottom: 1px solid var(--border);
+            transition: var(--transition);
+        }
+
+        tr {
+            transition: var(--transition);
+        }
+
+        tr:hover td {
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-critical {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .badge-normal {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-info {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--info);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .badge-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        /* Mitigation Panel */
+        .mitigation-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .mitigation-item {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 18px;
+            transition: var(--transition);
+        }
+
+        .mitigation-item:hover {
+            border-color: var(--border-hover);
+        }
+
+        .mitigation-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 26px;
+            background: var(--border);
+            border-radius: 13px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .toggle-switch.active {
+            background: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: var(--transition);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active::after {
+            left: 25px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group .input-field {
+            flex: 1;
+        }
+
+        /* Mitigation Section */
+        .mitigation-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .mitigation-lists {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .ip-list-container {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+
+        .ip-list-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .ip-list {
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        .ip-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 6px;
+            transition: var(--transition);
+        }
+
+        .ip-item:hover {
+            border-color: var(--border-hover);
+        }
+
+        .ip-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        .ip-address {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .ip-reason {
+            font-size: 10px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        .ip-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .ip-timer {
+            font-size: 11px;
+            color: var(--warning);
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 11px;
+            border-radius: 6px;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            position: relative;
+            height: 280px;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .toast {
+            padding: 14px 22px;
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .toast.success { border-color: var(--success); box-shadow: 0 0 20px var(--success-glow); }
+        .toast.error { border-color: var(--danger); box-shadow: 0 0 20px var(--danger-glow); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.3;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            #systemHealth .card-body > div:first-child > div { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+            .main-content { margin-left: 0; padding: 16px; }
+            .stats-grid { grid-template-columns: 1fr; }
+            .mitigation-grid { grid-template-columns: 1fr; }
+            .header { flex-direction: column; }
+            #systemHealth .card-body > div:first-child > div { grid-template-columns: 1fr; }
+            #systemHealth .card-body > div:last-child { grid-template-columns: 1fr; }
+            .mitigation-lists { grid-template-columns: 1fr; }
+            .mitigation-inputs { grid-template-columns: 1fr; }
+            .ip-list-container { max-height: 150px; }
+        }
+
+        /* Loading spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Terminal-style status bar */
+        .terminal-bar {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terminal-bar .prompt {
+            color: var(--accent);
+        }
+
+        .terminal-bar .value {
+            color: var(--success);
+        }
+
+        /* Glitch text effect for headings */
+        .glitch-text {
+            position: relative;
+        }
+
+        .glitch-text::before,
+        .glitch-text::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+        }
+
+        .glitch-text:hover::before {
+            animation: glitch-1 0.3s linear;
+            color: var(--accent-cyan);
+            opacity: 0.8;
+        }
+
+        .glitch-text:hover::after {
+            animation: glitch-2 0.3s linear;
+            color: var(--accent-purple);
+            opacity: 0.8;
+        }
+
+        @keyframes glitch-1 {
+            0% { clip-path: inset(20% 0 60% 0); transform: translate(-2px, 2px); }
+            20% { clip-path: inset(60% 0 10% 0); transform: translate(2px, -2px); }
+            40% { clip-path: inset(40% 0 30% 0); transform: translate(-2px, 2px); }
+            60% { clip-path: inset(80% 0 5% 0); transform: translate(2px, -2px); }
+            80% { clip-path: inset(10% 0 70% 0); transform: translate(-2px, 2px); }
+            100% { clip-path: inset(50% 0 30% 0); transform: translate(2px, -2px); }
+        }
+
+        @keyframes glitch-2 {
+            0% { clip-path: inset(60% 0 20% 0); transform: translate(2px, -2px); }
+            20% { clip-path: inset(10% 0 60% 0); transform: translate(-2px, 2px); }
+            40% { clip-path: inset(30% 0 40% 0); transform: translate(2px, -2px); }
+            60% { clip-path: inset(5% 0 80% 0); transform: translate(-2px, 2px); }
+            80% { clip-path: inset(70% 0 10% 0); transform: translate(2px, -2px); }
+            100% { clip-path: inset(30% 0 50% 0); transform: translate(-2px, 2px); }
+        }
+
+        /* Fade-in animation for page load */
+        .fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in-delay-1 { animation-delay: 0.1s; opacity: 0; }
+        .fade-in-delay-2 { animation-delay: 0.2s; opacity: 0; }
+        .fade-in-delay-3 { animation-delay: 0.3s; opacity: 0; }
+        .fade-in-delay-4 { animation-delay: 0.4s; opacity: 0; }
     </style>
 </head>
 <body>
-    <div class="container-fluid mt-3">
-        <h1 class="text-center mb-4">DDoS Detection Dashboard</h1>
+    <!-- Background Effects -->
+    <div class="bg-grid"></div>
+    <div class="glow-orb glow-orb-1"></div>
+    <div class="glow-orb glow-orb-2"></div>
+    <div class="glow-orb glow-orb-3"></div>
+    <div class="scanline"></div>
 
-        {% if not has_privileges %}
-        <div class="privilege-warning">
-            <strong>Warning:</strong> Insufficient privileges for packet capture. Run with:
-            <code>sudo python3 app.py</code>
-        </div>
-        {% endif %}
-
-        <!-- Pipeline Control -->
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Pipeline Control</h5>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">🛡️</div>
+                <div>
+                    <div class="logo-text">CYBER<span>SHIELD</span></div>
+                    <div class="logo-subtitle">Threat Intelligence</div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <button id="startBtn" class="btn btn-success btn-lg w-100" {% if is_running %}disabled{% endif %}>Start Detection</button>
+
+            <nav>
+                <div class="nav-section">
+                    <div class="nav-label">Monitoring</div>
+                    <div class="nav-item active" onclick="scrollToSection('dashboard')">
+                        <span class="nav-icon">📊</span> Dashboard
                     </div>
-                    <div class="col-md-6">
-                        <button id="stopBtn" class="btn btn-danger btn-lg w-100" {% if not is_running %}disabled{% endif %}>Stop Detection</button>
+                    <div class="nav-item" onclick="scrollToSection('detections')">
+                        <span class="nav-icon">🔍</span> Detections
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('mitigation')">
+                        <span class="nav-icon">🛡️</span> Mitigation
                     </div>
                 </div>
-                <div class="row mt-3">
-                    <div class="col-12">
-                        <button id="manualUpdateBtn" class="btn btn-info w-100 py-2">
-                            <i class="bi bi-cloud-arrow-down"></i> Update Model Now
+                <div class="nav-section">
+                    <div class="nav-label">Advanced</div>
+                    <div class="nav-item" onclick="scrollToSection('ebpf')">
+                        <span class="nav-icon">⚛️</span> eBPF/XDP
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('drl')">
+                        <span class="nav-icon">🧠</span> DRL Model
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('alerts')">
+                        <span class="nav-icon">🔔</span> Alerts
+                    </div>
+                </div>
+                <div class="nav-section">
+                    <div class="nav-label">System</div>
+                    <div class="nav-item" onclick="scrollToSection('pipeline')">
+                        <span class="nav-icon">⚡</span> Pipeline
+                    </div>
+                    <div class="nav-item" onclick="scrollToSection('systemHealth')">
+                        <span class="nav-icon">🖥️</span> System Health
+                    </div>
+                    <div class="nav-item" onclick="updateModel()">
+                        <span class="nav-icon">🔄</span> Update Model
+                    </div>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-badge" id="statusBadge">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span class="status-text" id="statusText">Pipeline Offline</span>
+                </div>
+                <div class="terminal-bar">
+                    <span class="prompt">$</span>
+                    <span>status:</span>
+                    <span class="value" id="terminalStatus">idle</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <div class="header fade-in">
+                <div class="header-left">
+                    <h1 class="glitch-text" data-text="DDoS Threat Intelligence">DDoS Threat Intelligence</h1>
+                    <p>real-time network threat monitoring & mitigation system</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-ghost" onclick="updateModel()" id="updateModelBtn">
+                        <span>🔄</span> Update Model
+                    </button>
+                    <form action="/start" method="post" style="display: inline;">
+                        <button type="submit" class="btn btn-primary" id="startBtn">
+                            <span>▶</span> Start Detection
                         </button>
-                        <div id="updateStatus" class="mt-2 small text-muted text-center"></div>
-                    </div>
-                </div>
-                <div class="mt-3" id="pipelineStatus">
-                    {% if is_running %}
-                    <div class="alert alert-success">Status: Running</div>
-                    {% else %}
-                    <div class="alert alert-warning">Status: Stopped</div>
-                    {% endif %}
+                    </form>
+                    <form action="/stop" method="post" style="display: inline;">
+                        <button type="submit" class="btn btn-danger" id="stopBtn">
+                            <span>⏹</span> Stop Detection
+                        </button>
+                    </form>
                 </div>
             </div>
-        </div>
 
-        <!-- Mitigation Control -->
-        <div class="card">
-            <div class="card-header bg-dark text-white">
-                <h5 class="mb-0"><i class="bi bi-shield-check"></i> Mitigation Control</h5>
+            {% if not has_privileges %}
+            <div class="privilege-warning fade-in fade-in-delay-1">
+                <span style="font-size: 20px;">⚠️</span>
+                <div>
+                    <strong>Insufficient privileges for packet capture.</strong>
+                    Run with <code>sudo python3 app.py</code> or
+                    <code>sudo setcap cap_net_raw,cap_net_admin+eip $(readlink -f $(which python3))</code>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Mitigation</label>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="mitigationToggle">
-                            <label class="form-check-label" for="mitigationToggle">Enable all mitigation</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Rate-Based Auto-Block</label>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="autoBlockToggle">
-                            <label class="form-check-label" for="autoBlockToggle">Enable rate blocking</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Rate Limit (packets/min)</label>
-                        <input type="number" class="form-control" id="rateLimitInput" min="10" max="10000" value="100">
-                    </div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">ML-Based Auto-Block</label>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="mlAutoBlockToggle">
-                            <label class="form-check-label" for="mlAutoBlockToggle">Enable ML blocking</label>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">ML Confidence Threshold</label>
-                        <input type="range" class="form-range" id="confidenceSlider" min="0" max="1" step="0.1" value="0.8" oninput="document.getElementById('confVal').textContent=this.value">
-                        <small>Value: <span id="confVal">0.8</span></small>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">ML Detection Count</label>
-                        <input type="number" class="form-control" id="countInput" min="1" max="10" value="3">
-                    </div>
-                </div>
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Block Duration (minutes)</label>
-                        <input type="number" class="form-control" id="durationInput" min="1" max="1440" value="60">
-                    </div>
-                    <div class="col-md-8 d-flex align-items-center gap-2">
-                        <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save Settings</button>
-                        <button class="btn btn-warning btn-sm" onclick="clearCounts()">Clear Counts</button>
-                        <span id="blockedCount" class="badge bg-danger">0 IPs Blocked</span>
-                    </div>
-                </div>
-                <hr>
-                <div class="row mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Block IP</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="blockIpInput" placeholder="IP address">
-                            <button class="btn btn-danger" onclick="blockIp()">Block</button>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Whitelist IP (never block)</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="whitelistIpInput" placeholder="IP address">
-                            <button class="btn btn-success" onclick="whitelistIp()">Whitelist</button>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Blacklist IP (always block)</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="blacklistIpInput" placeholder="IP address">
-                            <button class="btn btn-dark" onclick="blacklistIp()">Blacklist</button>
-                        </div>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Blocked IPs</label>
-                        <div id="blockedList" style="max-height:150px;overflow-y:auto;">
-                            <small class="text-muted">No blocked IPs</small>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Whitelist</label>
-                        <div id="whitelistList" style="max-height:150px;overflow-y:auto;">
-                            <small class="text-muted">Empty</small>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label fw-bold">Blacklist</label>
-                        <div id="blacklistList" style="max-height:150px;overflow-y:auto;">
-                            <small class="text-muted">Empty</small>
-                        </div>
-                    </div>
-                </div>
-                <div id="mitMsg" class="mt-2 small text-success"></div>
-            </div>
-        </div>
+            {% endif %}
 
-        <!-- Statistics Cards -->
-        <div class="row">
-            <div class="col-md-3">
-                <div class="stat-card bg-info"><h3 id="processedFiles">0</h3><p>Processed Files</p></div>
+            <!-- Stats Grid -->
+            <div class="stats-grid fade-in fade-in-delay-2" id="dashboard">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">Processed Files</span>
+                        <div class="stat-icon info">📁</div>
+                    </div>
+                    <div class="stat-value" id="processedFiles">0</div>
+                    <div class="stat-change">feature files analyzed</div>
+                </div>
+                <div class="stat-card danger">
+                    <div class="stat-header">
+                        <span class="stat-label">DDoS Detections</span>
+                        <div class="stat-icon danger">🚨</div>
+                    </div>
+                    <div class="stat-value danger" id="ddosDetections">0</div>
+                    <div class="stat-change">threats identified</div>
+                </div>
+                <div class="stat-card success">
+                    <div class="stat-header">
+                        <span class="stat-label">Normal Traffic</span>
+                        <div class="stat-icon success">✅</div>
+                    </div>
+                    <div class="stat-value success" id="normalDetections">0</div>
+                    <div class="stat-change">legitimate flows</div>
+                </div>
+                <div class="stat-card warning">
+                    <div class="stat-header">
+                        <span class="stat-label">Failed Files</span>
+                        <div class="stat-icon warning">⚠️</div>
+                    </div>
+                    <div class="stat-value warning" id="failedFiles">0</div>
+                    <div class="stat-change">processing errors</div>
+                </div>
             </div>
-            <div class="col-md-3">
-                <div class="stat-card bg-warning"><h3 id="ddosDetections">0</h3><p>DDoS Detections</p></div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-card bg-success"><h3 id="normalDetections">0</h3><p>Normal Traffic</p></div>
-            </div>
-            <div class="col-md-3">
-                <div class="stat-card bg-danger"><h3 id="failedFiles">0</h3><p>Failed Files</p></div>
-            </div>
-        </div>
 
-        <!-- Detection Results -->
-        <div class="row mt-3">
-            <div class="col-md-8">
+            <!-- Detections & Chart -->
+            <div class="grid-3 fade-in fade-in-delay-3" id="detections">
                 <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Recent Detections</h5>
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>🔍</span> Recent Detections
+                        </div>
+                        <span class="badge badge-info" id="detectionCount">0 total</span>
                     </div>
-                    <div class="card-body table-container">
-                        <table class="table table-striped table-hover" id="resultsTable">
+                    <div class="table-container" style="max-height: 420px; overflow-y: auto;">
+                        <table>
                             <thead>
                                 <tr>
                                     <th>Timestamp</th>
@@ -201,131 +1211,457 @@
                                     <th>Protocol</th>
                                     <th>Duration</th>
                                     <th>Status</th>
-                                    <th>Details</th>
+                                    <th>Confidence</th>
                                 </tr>
                             </thead>
-                            <tbody id="resultsBody"></tbody>
+                            <tbody id="resultsBody">
+                                <tr>
+                                    <td colspan="7">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">📡</div>
+                                            <div>No detections yet. Start the pipeline to begin monitoring.</div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
 
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">Detection Statistics</h5>
+                <div class="card" style="display: flex; flex-direction: column;">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span>📈</span> Traffic Distribution
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <canvas id="detectionChart"></canvas>
-                    </div>
-                </div>
-
-                <div class="card mt-3">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0">System Status</h5>
-                    </div>
-                    <div class="card-body">
-                        <ul class="list-group">
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Model Status <span class="badge bg-success" id="modelStatus">Loaded</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Processing Device <span class="badge bg-info" id="processingDevice">CPU</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Queue Size <span class="badge bg-primary" id="queueSize">0</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Last Dashboard Update <span class="badge bg-secondary" id="lastUpdate">Never</span>
-                            </li>
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                Last Model Update <span class="badge bg-secondary" id="modelLastUpdate">Never</span>
-                            </li>
-                        </ul>
+                    <div class="card-body" style="flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 16px;">
+                        <div class="chart-container" style="height: 220px; flex-shrink: 0;">
+                            <canvas id="detectionChart"></canvas>
+                        </div>
+                        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">DDoS</span>
+                                <span class="mono" id="chartDdos" style="color: var(--danger); font-weight: 600;">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Normal</span>
+                                <span class="mono" id="chartNormal" style="color: var(--success); font-weight: 600;">0</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0;">
+                                <span style="font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">Suspicious</span>
+                                <span class="mono" id="chartSuspicious" style="color: var(--warning); font-weight: 600;">0</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            <!-- Mitigation Control -->
+            <div class="card" id="mitigation" style="margin-top: 20px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🛡️</span> Mitigation Control
+                    </div>
+                    <span class="badge badge-critical" id="blockedCount">0 IPs Blocked</span>
+                </div>
+                <div class="card-body">
+                    <!-- Toggles -->
+                    <div class="mitigation-grid" style="margin-bottom: 16px;">
+                        <div class="mitigation-item">
+                            <div class="mitigation-label">Master Mitigation</div>
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div class="toggle-switch" id="mitigationToggle" onclick="toggleMitigation()"></div>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Enable all protocols</span>
+                            </div>
+                        </div>
+                        <div class="mitigation-item">
+                            <div class="mitigation-label">Rate-Based Auto-Block</div>
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div class="toggle-switch" id="autoBlockToggle" onclick="toggleAutoBlock()"></div>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Block high-rate IPs</span>
+                            </div>
+                        </div>
+                        <div class="mitigation-item">
+                            <div class="mitigation-label">Rate Limit (packets/min)</div>
+                            <input type="number" class="input-field" id="rateLimitInput" min="10" max="10000" value="50">
+                        </div>
+                        <div class="mitigation-item">
+                            <div class="mitigation-label">ML-Based Auto-Block</div>
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <div class="toggle-switch" id="mlAutoBlockToggle" onclick="toggleMlAutoBlock()"></div>
+                                <span style="font-size: 13px; color: var(--text-secondary);">Block after N detections</span>
+                            </div>
+                        </div>
+                        <div class="mitigation-item">
+                            <div class="mitigation-label">ML Confidence Threshold</div>
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <input type="range" class="input-field" id="confidenceSlider" min="0" max="1" step="0.1" value="0.8" style="flex:1;" oninput="document.getElementById('confVal').textContent=this.value">
+                                <span id="confVal" style="font-family: 'JetBrains Mono', monospace; font-size: 14px; min-width: 30px; color: var(--accent);">0.8</span>
+                            </div>
+                        </div>
+                        <div class="mitigation-item">
+                            <div class="mitigation-label">Block Duration (minutes)</div>
+                            <input type="number" class="input-field" id="durationInput" min="1" max="1440" value="60">
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+                        <button class="btn btn-ghost" onclick="clearCounts()">🗑️ Clear Counts</button>
+                    </div>
+
+                    <!-- IP Management Inputs -->
+                    <div class="mitigation-inputs">
+                        <div class="input-group">
+                            <input type="text" class="input-field" id="blockIpInput" placeholder="Block IP address">
+                            <button class="btn btn-danger btn-sm" onclick="blockIp()">Block</button>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" class="input-field" id="whitelistIpInput" placeholder="Whitelist IP">
+                            <button class="btn btn-primary btn-sm" onclick="whitelistIp()">Add</button>
+                        </div>
+                        <div class="input-group">
+                            <input type="text" class="input-field" id="blacklistIpInput" placeholder="Blacklist IP">
+                            <button class="btn btn-ghost btn-sm" onclick="blacklistIp()">Add</button>
+                        </div>
+                    </div>
+
+                    <!-- IP Lists -->
+                    <div class="mitigation-lists">
+                        <div class="ip-list-container">
+                            <h4 class="ip-list-title">🚫 Blocked IPs</h4>
+                            <div class="ip-list" id="blockedList">
+                                <div class="empty-state" style="padding: 16px;">No blocked IPs</div>
+                            </div>
+                        </div>
+                        <div class="ip-list-container">
+                            <h4 class="ip-list-title">✅ Whitelist</h4>
+                            <div class="ip-list" id="whitelistList">
+                                <div class="empty-state" style="padding: 16px;">Empty</div>
+                            </div>
+                        </div>
+                        <div class="ip-list-container">
+                            <h4 class="ip-list-title">⛔ Blacklist</h4>
+                            <div class="ip-list" id="blacklistList">
+                                <div class="empty-state" style="padding: 16px;">Empty</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- eBPF/XDP Panel -->
+            <div class="card" id="ebpf" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>⚛️</span> eBPF/XDP Kernel Filtering
+                    </div>
+                    <span class="badge badge-warning" id="ebpfStatus">Disabled</span>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">XDP Mode</div>
+                            <div class="mono" id="ebpfXdp" style="font-size: 16px; font-weight: 700; color: var(--accent);">--</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Interface</div>
+                            <div class="mono" id="ebpfInterface" style="font-size: 16px; font-weight: 700; color: var(--accent-cyan);">--</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Packets Dropped</div>
+                            <div class="mono" id="ebpfDropped" style="font-size: 16px; font-weight: 700; color: var(--danger);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">BCC Library</div>
+                            <div class="mono" id="ebpfBcc" style="font-size: 16px; font-weight: 700; color: var(--text-muted);">--</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <div class="input-group" style="flex: 1;">
+                            <input type="text" class="input-field" id="ebpfBlockIp" placeholder="Block IP via XDP">
+                            <button class="btn btn-danger btn-sm" onclick="ebpfBlockIp()">Block</button>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="loadEbpf()">↻ Refresh</button>
+                    </div>
+                    <div class="ip-list-container">
+                        <h4 class="ip-list-title">🚫 eBPF Blocked IPs</h4>
+                        <div class="ip-list" id="ebpfBlockedList">
+                            <div class="empty-state" style="padding: 16px;">No eBPF blocks</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DRL Mitigation Panel -->
+            <div class="card" id="drl" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🧠</span> DRL Model Mitigation
+                    </div>
+                    <span class="badge badge-warning" id="drlStatus">Disabled</span>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Model Loaded</div>
+                            <div class="badge badge-warning" id="drlModel" style="font-size: 11px;">No</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Confidence</div>
+                            <div class="mono" id="drlConfidence" style="font-size: 16px; font-weight: 700; color: var(--accent);">--</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Decisions Made</div>
+                            <div class="mono" id="drlDecisions" style="font-size: 16px; font-weight: 700; color: var(--accent-cyan);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Blocks Applied</div>
+                            <div class="mono" id="drlBlocks" style="font-size: 16px; font-weight: 700; color: var(--danger);">0</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+                        <div class="toggle-switch" id="drlToggle" onclick="toggleDrl()"></div>
+                        <span style="font-size: 13px; color: var(--text-secondary);">Enable DRL-based blocking</span>
+                        <button class="btn btn-ghost btn-sm" onclick="loadDrl()">↻ Refresh</button>
+                    </div>
+                    <div class="ip-list-container">
+                        <h4 class="ip-list-title">🚫 DRL Blocked IPs</h4>
+                        <div class="ip-list" id="drlBlockedList">
+                            <div class="empty-state" style="padding: 16px;">No DRL blocks</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts Panel -->
+            <div class="card" id="alerts" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🔔</span> Alert Center
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span class="badge badge-critical" id="alertCount">0 Alerts</span>
+                        <button class="btn btn-ghost btn-sm" onclick="loadAlerts()">↻ Refresh</button>
+                        <button class="btn btn-primary btn-sm" onclick="testAlert()">📤 Test Alert</button>
+                        <button class="btn btn-ghost btn-sm" onclick="clearAlerts()">🗑️ Clear</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Total Alerts</div>
+                            <div class="mono" id="alertTotal" style="font-size: 18px; font-weight: 700; color: var(--accent);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Critical</div>
+                            <div class="mono" id="alertCritical" style="font-size: 18px; font-weight: 700; color: var(--danger);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Warning</div>
+                            <div class="mono" id="alertWarning" style="font-size: 18px; font-weight: 700; color: var(--warning);">0</div>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                            <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Channels</div>
+                            <div class="mono" id="alertChannels" style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">--</div>
+                        </div>
+                    </div>
+                    <div class="ip-list-container" style="max-height: 300px; overflow-y: auto;">
+                        <h4 class="ip-list-title">📋 Alert History</h4>
+                        <div class="ip-list" id="alertList">
+                            <div class="empty-state" style="padding: 16px;">No alerts yet</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="card fade-in fade-in-delay-4" id="pipeline" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>⚡</span> System Status
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;">
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model</div>
+                            <div class="badge badge-normal" id="modelStatus">Not Loaded</div>
+                        </div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Device</div>
+                            <div class="badge badge-info" id="processingDevice">CPU</div>
+                        </div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Queue</div>
+                            <div class="badge badge-info" id="queueSize">0</div>
+                        </div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Last Update</div>
+                            <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="lastUpdate">--:--:--</div>
+                        </div>
+                        <div style="text-align: center; padding: 14px 10px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+                            <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px;">Model Update</div>
+                            <div style="font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--text-secondary);" id="modelLastUpdate">Never</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Health Panel -->
+            <div class="card" id="systemHealth" style="margin-top: 24px;">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span>🖥️</span> System Health
+                    </div>
+                    <span class="badge badge-info" id="healthTimestamp">--:--:--</span>
+                </div>
+                <div class="card-body">
+                    <!-- Hardware Metrics -->
+                    <div style="margin-bottom: 24px;">
+                        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">Server Hardware</div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">CPU Usage</div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span class="mono" id="cpuPercent" style="font-size: 24px; font-weight: 700; color: var(--accent);">0%</span>
+                                    <span style="font-size: 11px; color: var(--text-muted);" id="cpuCores">0 cores</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px;">
+                                    <div id="cpuBar" style="width: 0%; height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Memory</div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span class="mono" id="memPercent" style="font-size: 24px; font-weight: 700; color: var(--accent-cyan);">0%</span>
+                                    <span style="font-size: 11px; color: var(--text-muted);" id="memUsed">0 / 0 GB</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px;">
+                                    <div id="memBar" style="width: 0%; height: 100%; background: var(--accent-cyan); border-radius: 2px; transition: width 0.5s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Disk</div>
+                                <div style="display: flex; align-items: baseline; gap: 8px;">
+                                    <span class="mono" id="diskPercent" style="font-size: 24px; font-weight: 700; color: var(--accent-purple);">0%</span>
+                                    <span style="font-size: 11px; color: var(--text-muted);" id="diskUsed">0 / 0 GB</span>
+                                </div>
+                                <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px;">
+                                    <div id="diskBar" style="width: 0%; height: 100%; background: var(--accent-purple); border-radius: 2px; transition: width 0.5s ease;"></div>
+                                </div>
+                            </div>
+                            <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px;">
+                                <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Network I/O</div>
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 11px; color: var(--text-muted);">↓ RX</span>
+                                        <span class="mono" id="netRx" style="font-size: 13px; color: var(--success);">0 Mbps</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 11px; color: var(--text-muted);">↑ TX</span>
+                                        <span class="mono" id="netTx" style="font-size: 13px; color: var(--accent-cyan);">0 Mbps</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="font-size: 11px; color: var(--text-muted);">PPS</span>
+                                        <span class="mono" id="netPps" style="font-size: 13px; color: var(--text-secondary);">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Application & Security Metrics -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">Application Performance</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Pipeline</div>
+                                    <div class="badge badge-normal" id="appPipeline" style="font-size: 11px;">Stopped</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Queue</div>
+                                    <div class="mono" id="appQueue" style="font-size: 18px; font-weight: 700; color: var(--accent);">0</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Detections/min</div>
+                                    <div class="mono" id="appDpm" style="font-size: 18px; font-weight: 700; color: var(--warning);">0</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Uptime</div>
+                                    <div class="mono" id="appUptime" style="font-size: 18px; font-weight: 700; color: var(--text-secondary);">0h</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 12px;">Security & Mitigation</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Active Blocks</div>
+                                    <div class="mono" id="secBlocks" style="font-size: 18px; font-weight: 700; color: var(--danger);">0</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Firewall</div>
+                                    <div class="badge badge-normal" id="secFirewall" style="font-size: 11px;">Inactive</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">eBPF/XDP</div>
+                                    <div class="badge badge-warning" id="secEbpf" style="font-size: 11px;">Disabled</div>
+                                </div>
+                                <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px;">
+                                    <div style="font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">Alerts</div>
+                                    <div class="mono" id="secAlerts" style="font-size: 18px; font-weight: 700; color: var(--warning);">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script>
         let detectionChart = null;
 
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             initializeChart();
-            setupPipelineButtons();
-            setupManualUpdate();
-            setupMitigationToggles();
             updateDashboard();
             loadMitigation();
+            updateSystemHealth();
+            loadEbpf();
+            loadDrl();
+            loadAlerts();
             setInterval(updateDashboard, 5000);
             setInterval(loadMitigation, 10000);
+            setInterval(updateSystemHealth, 3000);
+            setInterval(loadEbpf, 15000);
+            setInterval(loadDrl, 15000);
+            setInterval(loadAlerts, 10000);
         });
 
-        function setupPipelineButtons() {
-            document.getElementById('startBtn').addEventListener('click', function() {
-                this.disabled = true;
-                fetch('/start', {method: 'POST'}).then(r => r.json()).then(d => {
-                    if (d.status === 'success') { location.reload(); }
-                    else { alert(d.message || 'Failed to start'); this.disabled = false; }
-                }).catch(() => { this.disabled = false; });
-            });
-
-            document.getElementById('stopBtn').addEventListener('click', function() {
-                this.disabled = true;
-                fetch('/stop', {method: 'POST'}).then(r => r.json()).then(d => {
-                    if (d.status === 'success') { location.reload(); }
-                    else { alert(d.message || 'Failed to stop'); this.disabled = false; }
-                }).catch(() => { this.disabled = false; });
-            });
+        function scrollToSection(id) {
+            document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
-        function setupManualUpdate() {
-            const btn = document.getElementById('manualUpdateBtn');
-            const status = document.getElementById('updateStatus');
-            btn.addEventListener('click', function() {
-                btn.disabled = true;
-                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Updating...';
-                status.textContent = 'Starting model update...';
-                status.className = 'mt-2 small text-info text-center';
-
-                fetch('/api/update_model', {method: 'POST'}).then(r => r.json()).then(d => {
-                    if (d.status === 'success') {
-                        status.textContent = 'Model updated successfully!';
-                        status.className = 'mt-2 small text-success text-center';
-                        updateModelStatus();
-                    } else {
-                        status.textContent = 'Update failed: ' + (d.message || 'Unknown');
-                        status.className = 'mt-2 small text-danger text-center';
-                    }
-                }).catch(() => {
-                    status.textContent = 'Error connecting to server';
-                    status.className = 'mt-2 small text-danger text-center';
-                }).finally(() => {
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.innerHTML = '<i class="bi bi-cloud-arrow-down"></i> Update Model Now';
-                    }, 5000);
-                });
-            });
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
 
-        function setupMitigationToggles() {
-            const el = (id) => document.getElementById(id);
-            el('mitigationToggle').addEventListener('change', function() {
-                fetch('/api/mitigation/toggle', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: this.checked})})
-                    .then(() => showMsg('Mitigation ' + (this.checked ? 'ON' : 'OFF')));
-            });
-            el('autoBlockToggle').addEventListener('change', function() {
-                fetch('/api/mitigation/toggle_auto', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: this.checked})})
-                    .then(() => showMsg('Rate auto-block ' + (this.checked ? 'ON' : 'OFF')));
-            });
-            el('mlAutoBlockToggle').addEventListener('change', function() {
-                fetch('/api/mitigation/toggle_ml_auto', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: this.checked})})
-                    .then(() => showMsg('ML auto-block ' + (this.checked ? 'ON' : 'OFF')));
-            });
-        }
-
+        // Chart
         function initializeChart() {
             const ctx = document.getElementById('detectionChart').getContext('2d');
             detectionChart = new Chart(ctx, {
@@ -334,116 +1670,253 @@
                     labels: ['Normal', 'DDoS', 'Suspicious'],
                     datasets: [{
                         data: [1, 0, 0],
-                        backgroundColor: ['#00C851', '#ff4444', '#ffbb33'],
-                        borderWidth: 1
+                        backgroundColor: [
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(245, 158, 11, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(239, 68, 68, 1)',
+                            'rgba(245, 158, 11, 1)'
+                        ],
+                        borderWidth: 2,
+                        hoverOffset: 12
                     }]
                 },
-                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#a0a0c0',
+                                padding: 16,
+                                usePointStyle: true,
+                                pointStyleWidth: 10,
+                                font: { family: 'JetBrains Mono', size: 12 }
+                            }
+                        }
+                    },
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 1000
+                    }
+                }
             });
         }
 
+        // Dashboard Update
         function updateDashboard() {
-            fetch('/api/status').then(r => r.json()).then(data => {
-                const statusDiv = document.getElementById('pipelineStatus');
-                statusDiv.innerHTML = data.running
-                    ? '<div class="alert alert-success">Status: Running</div>'
-                    : '<div class="alert alert-warning">Status: Stopped</div>';
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('processedFiles').textContent = data.processed_files;
+                    document.getElementById('ddosDetections').textContent = data.ddos_detections || 0;
+                    document.getElementById('normalDetections').textContent = data.normal_detections || 0;
+                    document.getElementById('failedFiles').textContent = data.failed_files;
 
-                document.getElementById('processedFiles').textContent = data.processed_files;
-                document.getElementById('ddosDetections').textContent = data.ddos_detections || 0;
-                document.getElementById('normalDetections').textContent = data.normal_detections || 0;
-                document.getElementById('failedFiles').textContent = data.failed_files;
-                document.getElementById('modelStatus').textContent = data.model_loaded ? 'Loaded' : 'Not Loaded';
-                document.getElementById('processingDevice').textContent = (data.device && data.device.includes('cuda')) ? 'GPU' : 'CPU';
-                document.getElementById('queueSize').textContent = data.queue_size;
-                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                    const modelStatus = document.getElementById('modelStatus');
+                    modelStatus.textContent = data.model_loaded ? 'Loaded' : 'Not Loaded';
+                    modelStatus.className = `badge ${data.model_loaded ? 'badge-normal' : 'badge-warning'}`;
 
-                if (data.detection_stats && detectionChart) {
-                    detectionChart.data.datasets[0].data = [
-                        data.detection_stats.normal || 0,
-                        data.detection_stats.ddos || 0,
-                        data.detection_stats.suspicious || 0
-                    ];
-                    detectionChart.update();
-                }
-            }).catch(e => console.error('Error fetching status:', e));
+                    document.getElementById('processingDevice').textContent = (data.device && data.device.includes('cuda')) ? 'GPU' : 'CPU';
+                    document.getElementById('queueSize').textContent = data.queue_size;
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
 
-            fetch('/api/detections').then(r => r.json()).then(data => {
-                const tbody = document.getElementById('resultsBody');
-                if (!data.detections || data.detections.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No detections yet</td></tr>';
-                    return;
-                }
+                    const statusDot = document.getElementById('statusDot');
+                    const statusText = document.getElementById('statusText');
+                    const statusBadge = document.getElementById('statusBadge');
+                    const terminalStatus = document.getElementById('terminalStatus');
 
-                tbody.innerHTML = data.detections.map(d => {
-                    const cls = d.severity === 'critical' ? 'alert-critical' : d.severity === 'warning' ? 'alert-warning' : 'alert-info';
-                    return `<tr>
-                        <td>${new Date(d.timestamp).toLocaleString()}</td>
-                        <td>${d.src_ip}</td>
-                        <td>${d.dst_ip}</td>
-                        <td>${d.protocol}</td>
-                        <td>${parseFloat(d.duration || 0).toFixed(2)}s</td>
-                        <td><span class="badge ${cls}">${d.status}</span></td>
-                        <td><button class="btn btn-sm btn-info" onclick="showDetails('${d.id}')">View</button></td>
-                    </tr>`;
-                }).join('');
-            }).catch(e => console.error('Error fetching detections:', e));
-        }
+                    if (data.running) {
+                        statusDot.classList.add('active');
+                        statusText.textContent = 'Pipeline Active';
+                        statusBadge.classList.add('active');
+                        terminalStatus.textContent = 'running';
+                        terminalStatus.style.color = 'var(--success)';
+                    } else {
+                        statusDot.classList.remove('active');
+                        statusText.textContent = 'Pipeline Offline';
+                        statusBadge.classList.remove('active');
+                        terminalStatus.textContent = 'idle';
+                        terminalStatus.style.color = 'var(--text-muted)';
+                    }
 
-        function showDetails(id) {
-            fetch('/api/detections/' + id).then(r => r.json()).then(d => {
-                alert(
-                    'Flow ID: ' + d.flow_id + '\n' +
-                    'Source IP: ' + d.src_ip + '\n' +
-                    'Destination IP: ' + d.dst_ip + '\n' +
-                    'Packets: ' + d.packets + '\n' +
-                    'Bytes: ' + d.bytes + '\n' +
-                    'Duration: ' + d.duration + 's\n' +
-                    'Confidence: ' + (d.confidence * 100).toFixed(2) + '%\n' +
-                    'Timestamp: ' + new Date(d.timestamp).toLocaleString()
-                );
-            }).catch(() => alert('Could not load detection details'));
-        }
+                    if (data.detection_stats) {
+                        detectionChart.data.datasets[0].data = [
+                            data.detection_stats.normal || 0,
+                            data.detection_stats.ddos || 0,
+                            data.detection_stats.suspicious || 0
+                        ];
+                        detectionChart.update();
+                        document.getElementById('chartDdos').textContent = data.detection_stats.ddos || 0;
+                        document.getElementById('chartNormal').textContent = data.detection_stats.normal || 0;
+                        document.getElementById('chartSuspicious').textContent = data.detection_stats.suspicious || 0;
+                    }
+                })
+                .catch(err => console.error('Status error:', err));
 
-        function updateModelStatus() {
-            fetch('/api/model_status').then(r => r.json()).then(d => {
-                if (d.data && d.data.last_update) {
-                    document.getElementById('modelLastUpdate').textContent = new Date(d.data.last_update).toLocaleString();
-                }
-            }).catch(() => {});
-        }
+            fetch('/api/detections')
+                .then(r => r.json())
+                .then(data => {
+                    const tbody = document.getElementById('resultsBody');
+                    document.getElementById('detectionCount').textContent = `${data.metadata.total} total`;
 
-        function loadMitigation() {
-            fetch('/api/mitigation/status').then(r => r.json()).then(d => {
-                document.getElementById('mitigationToggle').checked = d.enabled || false;
-                document.getElementById('autoBlockToggle').checked = d.rate_limit_enabled || false;
-                document.getElementById('rateLimitInput').value = d.rate_limit_ppm || 100;
-                document.getElementById('mlAutoBlockToggle').checked = d.ml_auto_block || false;
-                document.getElementById('confidenceSlider').value = d.confidence_threshold || 0.8;
-                document.getElementById('confVal').textContent = d.confidence_threshold || 0.8;
-                document.getElementById('countInput').value = d.detection_count || 3;
-                document.getElementById('durationInput').value = d.block_duration_min || 60;
-                document.getElementById('blockedCount').textContent = d.total_blocked + ' IPs Blocked';
-
-                const renderList = (containerId, items, btnText, btnClass, btnAction) => {
-                    const el = document.getElementById(containerId);
-                    if (!items || items.length === 0) {
-                        el.innerHTML = '<small class="text-muted">Empty</small>';
+                    if (!data.detections || data.detections.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📡</div><div>No detections yet. Start the pipeline to begin monitoring.</div></div></td></tr>';
                         return;
                     }
-                    el.innerHTML = items.map(item =>
-                        `<div class="list-item d-flex justify-content-between align-items-center">
-                            <div><code>${item.ip || item}</code>${item.reason ? '<br><small class="text-muted">' + item.reason + '</small>' : ''}</div>
-                            <span>${item.remaining_min != null ? '<small class="text-danger">' + item.remaining_min + 'm</small>' : ''}
-                            <button class="btn btn-sm ${btnClass} ms-1" onclick="${btnAction}('${item.ip || item}')">${btnText}</button></span>
-                        </div>`
-                    ).join('');
-                };
 
-                renderList('blockedList', d.blocked_ips, 'Unblock', 'btn-success', 'unblockIp');
-                renderList('whitelistList', d.whitelist, 'Remove', 'btn-outline-secondary', 'unwhitelistIp');
-                renderList('blacklistList', d.blacklist, 'Remove', 'btn-outline-secondary', 'unblacklistIp');
-            }).catch(() => {});
+                    tbody.innerHTML = '';
+                    data.detections.forEach(d => {
+                        const row = document.createElement('tr');
+                        const badgeClass = d.severity === 'critical' ? 'badge-critical' : d.severity === 'warning' ? 'badge-warning' : 'badge-normal';
+                        const statusLabel = d.status === 'DDoS' ? 'DDoS' : d.status === 'Suspicious' ? 'Suspicious' : 'Normal';
+
+                        row.innerHTML = `
+                            <td class="mono" style="color: var(--text-secondary);">${new Date(d.timestamp).toLocaleString()}</td>
+                            <td class="mono">${d.src_ip}</td>
+                            <td class="mono">${d.dst_ip}</td>
+                            <td><span class="badge badge-info">${d.protocol}</span></td>
+                            <td class="mono">${parseFloat(d.duration || 0).toFixed(2)}s</td>
+                            <td><span class="badge ${badgeClass}"><span class="badge-dot"></span>${statusLabel}</span></td>
+                            <td class="mono" style="color: var(--text-secondary);">${(d.confidence * 100).toFixed(1)}%</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(err => console.error('Detections error:', err));
+        }
+
+        // Model Update
+        function updateModel() {
+            const btn = document.getElementById('updateModelBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> Updating...';
+
+            fetch('/api/update_model', { method: 'POST' })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        showToast('Model updated successfully', 'success');
+                        updateModelStatus();
+                    } else {
+                        showToast(`Update failed: ${result.message}`, 'error');
+                    }
+                })
+                .catch(() => showToast('Error connecting to server', 'error'))
+                .finally(() => {
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = '<span>🔄</span> Update Model';
+                    }, 3000);
+                });
+        }
+
+        async function updateModelStatus() {
+            try {
+                const res = await fetch('/api/model_status');
+                const s = await res.json();
+                if (s.data.last_update) {
+                    document.getElementById('modelLastUpdate').textContent = new Date(s.data.last_update).toLocaleString();
+                }
+            } catch (e) { console.error('Model status error:', e); }
+        }
+
+        // Mitigation
+        function loadMitigation() {
+            fetch('/api/mitigation/status')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('mitigationToggle').classList.toggle('active', d.enabled);
+                    document.getElementById('autoBlockToggle').classList.toggle('active', d.rate_limit_enabled);
+                    document.getElementById('rateLimitInput').value = d.rate_limit_ppm;
+                    document.getElementById('mlAutoBlockToggle').classList.toggle('active', d.ml_auto_block);
+                    document.getElementById('confidenceSlider').value = d.confidence_threshold;
+                    document.getElementById('confVal').textContent = d.confidence_threshold;
+                    document.getElementById('durationInput').value = d.block_duration_min;
+                    document.getElementById('blockedCount').textContent = `${d.total_blocked} IPs Blocked`;
+
+                    // Blocked IPs
+                    const bl = document.getElementById('blockedList');
+                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
+                        bl.innerHTML = '<div class="empty-state" style="padding: 16px;">No blocked IPs</div>';
+                    } else {
+                        bl.innerHTML = d.blocked_ips.map(b => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address">${b.ip}</span>
+                                    <span class="ip-reason">${b.reason || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <span class="ip-timer">${b.remaining_min}m</span>
+                                    <button class="btn btn-primary btn-sm" onclick="unblockIp('${b.ip}')">Unblock</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+
+                    // Whitelist
+                    const wl = document.getElementById('whitelistList');
+                    if (!d.whitelist || d.whitelist.length === 0) {
+                        wl.innerHTML = '<div class="empty-state" style="padding: 16px;">Empty</div>';
+                    } else {
+                        wl.innerHTML = d.whitelist.map(ip => `
+                            <div class="ip-item">
+                                <span class="ip-address">${ip}</span>
+                                <button class="btn btn-ghost btn-sm" onclick="unwhitelistIp('${ip}')">Remove</button>
+                            </div>
+                        `).join('');
+                    }
+
+                    // Blacklist
+                    const bl2 = document.getElementById('blacklistList');
+                    if (!d.blacklist || d.blacklist.length === 0) {
+                        bl2.innerHTML = '<div class="empty-state" style="padding: 16px;">Empty</div>';
+                    } else {
+                        bl2.innerHTML = d.blacklist.map(ip => `
+                            <div class="ip-item">
+                                <span class="ip-address">${ip}</span>
+                                <button class="btn btn-ghost btn-sm" onclick="unblacklistIp('${ip}')">Remove</button>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => console.error('Mitigation load error:', err));
+        }
+
+        function toggleMitigation() {
+            const el = document.getElementById('mitigationToggle');
+            el.classList.toggle('active');
+            fetch('/api/mitigation/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: el.classList.contains('active')})
+            }).then(() => showToast(`Mitigation ${el.classList.contains('active') ? 'ON' : 'OFF'}`));
+        }
+
+        function toggleAutoBlock() {
+            const el = document.getElementById('autoBlockToggle');
+            el.classList.toggle('active');
+            fetch('/api/mitigation/toggle_auto', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: el.classList.contains('active')})
+            }).then(() => showToast(`Rate auto-block ${el.classList.contains('active') ? 'ON' : 'OFF'}`));
+        }
+
+        function toggleMlAutoBlock() {
+            const el = document.getElementById('mlAutoBlockToggle');
+            el.classList.toggle('active');
+            fetch('/api/mitigation/toggle_ml_auto', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: el.classList.contains('active')})
+            }).then(() => showToast(`ML auto-block ${el.classList.contains('active') ? 'ON' : 'OFF'}`));
         }
 
         function saveSettings() {
@@ -453,56 +1926,312 @@
                 body: JSON.stringify({
                     rate_limit_ppm: parseInt(document.getElementById('rateLimitInput').value),
                     confidence: parseFloat(document.getElementById('confidenceSlider').value),
-                    count: parseInt(document.getElementById('countInput').value),
+                    count: 3,
                     duration: parseInt(document.getElementById('durationInput').value)
                 })
-            }).then(() => showMsg('Settings saved'));
+            }).then(() => showToast('Settings saved'));
         }
 
         function clearCounts() {
-            fetch('/api/mitigation/clear_counts', {method: 'POST'}).then(() => showMsg('Detection counts cleared'));
+            fetch('/api/mitigation/clear_counts', {method: 'POST'})
+                .then(() => showToast('Detection counts cleared'));
         }
 
         function blockIp() {
             const ip = document.getElementById('blockIpInput').value.trim();
             if (!ip) return;
-            fetch('/api/mitigation/block', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
-                .then(() => { document.getElementById('blockIpInput').value = ''; loadMitigation(); showMsg('Blocked ' + ip); });
+            fetch('/api/mitigation/block', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                document.getElementById('blockIpInput').value = '';
+                loadMitigation();
+                showToast(`Blocked ${ip}`);
+            });
         }
 
         function unblockIp(ip) {
-            fetch('/api/mitigation/unblock', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
-                .then(() => { loadMitigation(); showMsg('Unblocked ' + ip); });
+            fetch('/api/mitigation/unblock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadMitigation();
+                showToast(`Unblocked ${ip}`);
+            });
         }
 
         function whitelistIp() {
             const ip = document.getElementById('whitelistIpInput').value.trim();
             if (!ip) return;
-            fetch('/api/mitigation/whitelist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
-                .then(() => { document.getElementById('whitelistIpInput').value = ''; loadMitigation(); showMsg('Whitelisted ' + ip); });
+            fetch('/api/mitigation/whitelist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                document.getElementById('whitelistIpInput').value = '';
+                loadMitigation();
+                showToast(`Whitelisted ${ip}`);
+            });
         }
 
         function unwhitelistIp(ip) {
-            fetch('/api/mitigation/unwhitelist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
-                .then(() => { loadMitigation(); showMsg('Removed from whitelist'); });
+            fetch('/api/mitigation/unwhitelist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadMitigation();
+                showToast('Removed from whitelist');
+            });
         }
 
         function blacklistIp() {
             const ip = document.getElementById('blacklistIpInput').value.trim();
             if (!ip) return;
-            fetch('/api/mitigation/blacklist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
-                .then(() => { document.getElementById('blacklistIpInput').value = ''; loadMitigation(); showMsg('Blacklisted ' + ip); });
+            fetch('/api/mitigation/blacklist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                document.getElementById('blacklistIpInput').value = '';
+                loadMitigation();
+                showToast(`Blacklisted ${ip}`);
+            });
         }
 
         function unblacklistIp(ip) {
-            fetch('/api/mitigation/unblacklist', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ip})})
-                .then(() => { loadMitigation(); showMsg('Removed from blacklist'); });
+            fetch('/api/mitigation/unblacklist', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadMitigation();
+                showToast('Removed from blacklist');
+            });
         }
 
-        function showMsg(msg) {
-            const el = document.getElementById('mitMsg');
-            el.textContent = msg;
-            setTimeout(() => { el.textContent = ''; }, 3000);
+        // System Health
+        function updateSystemHealth() {
+            fetch('/api/system/metrics')
+                .then(r => r.json())
+                .then(data => {
+                    const hw = data.hardware || {};
+                    const app = data.application || {};
+                    const sec = data.security || {};
+
+                    // Timestamp
+                    document.getElementById('healthTimestamp').textContent = new Date(data.timestamp).toLocaleTimeString();
+
+                    // Hardware
+                    document.getElementById('cpuPercent').textContent = `${hw.cpu_percent || 0}%`;
+                    document.getElementById('cpuCores').textContent = `${hw.cpu_count || 0} cores`;
+                    document.getElementById('cpuBar').style.width = `${hw.cpu_percent || 0}%`;
+
+                    document.getElementById('memPercent').textContent = `${hw.memory_percent || 0}%`;
+                    document.getElementById('memUsed').textContent = `${hw.memory_used_gb || 0} / ${hw.memory_total_gb || 0} GB`;
+                    document.getElementById('memBar').style.width = `${hw.memory_percent || 0}%`;
+
+                    document.getElementById('diskPercent').textContent = `${hw.disk_percent || 0}%`;
+                    document.getElementById('diskUsed').textContent = `${hw.disk_used_gb || 0} / ${hw.disk_total_gb || 0} GB`;
+                    document.getElementById('diskBar').style.width = `${hw.disk_percent || 0}%`;
+
+                    document.getElementById('netRx').textContent = `${hw.net_rx_mbps || 0} Mbps`;
+                    document.getElementById('netTx').textContent = `${hw.net_tx_mbps || 0} Mbps`;
+                    document.getElementById('netPps').textContent = `${hw.net_rx_pps || 0}`;
+
+                    // Application
+                    document.getElementById('appPipeline').textContent = app.pipeline_running ? 'Running' : 'Stopped';
+                    document.getElementById('appPipeline').className = `badge ${app.pipeline_running ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('appQueue').textContent = app.queue_size || 0;
+                    document.getElementById('appDpm').textContent = app.detections_per_min || 0;
+                    document.getElementById('appUptime').textContent = `${app.uptime_hours || 0}h`;
+
+                    // Security
+                    document.getElementById('secBlocks').textContent = sec.active_blocks || 0;
+                    document.getElementById('secFirewall').textContent = sec.firewall_enabled ? 'Active' : 'Inactive';
+                    document.getElementById('secFirewall').className = `badge ${sec.firewall_enabled ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('secEbpf').textContent = sec.ebpf_enabled ? 'Active' : 'Disabled';
+                    document.getElementById('secEbpf').className = `badge ${sec.ebpf_enabled ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('secAlerts').textContent = sec.alerts_triggered || 0;
+                })
+                .catch(err => console.error('System health error:', err));
+        }
+
+        // eBPF/XDP
+        function loadEbpf() {
+            fetch('/api/ebpf/status')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('ebpfStatus').textContent = d.use_xdp ? 'Active' : d.use_iptables_fallback ? 'Fallback' : 'Disabled';
+                    document.getElementById('ebpfStatus').className = `badge ${d.use_xdp ? 'badge-normal' : d.use_iptables_fallback ? 'badge-warning' : 'badge-warning'}`;
+                    document.getElementById('ebpfXdp').textContent = d.use_xdp ? 'Yes' : 'No';
+                    document.getElementById('ebpfInterface').textContent = d.interface || '--';
+                    document.getElementById('ebpfDropped').textContent = d.xdp_packets_dropped || 0;
+                    document.getElementById('ebpfBcc').textContent = d.bcc_available ? 'Available' : 'Missing';
+                    document.getElementById('ebpfBcc').style.color = d.bcc_available ? 'var(--success)' : 'var(--text-muted)';
+
+                    const bl = document.getElementById('ebpfBlockedList');
+                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
+                        bl.innerHTML = '<div class="empty-state" style="padding: 16px;">No eBPF blocks</div>';
+                    } else {
+                        bl.innerHTML = d.blocked_ips.map(b => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address">${b.ip}</span>
+                                    <span class="ip-reason">${b.reason || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <button class="btn btn-primary btn-sm" onclick="ebpfUnblockIp('${b.ip}')">Unblock</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => console.error('eBPF load error:', err));
+        }
+
+        function ebpfBlockIp() {
+            const ip = document.getElementById('ebpfBlockIp').value.trim();
+            if (!ip) return;
+            fetch('/api/ebpf/block', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip, reason: 'Manual eBPF block'})
+            }).then(() => {
+                document.getElementById('ebpfBlockIp').value = '';
+                loadEbpf();
+                showToast(`eBPF blocked ${ip}`);
+            });
+        }
+
+        function ebpfUnblockIp(ip) {
+            fetch('/api/ebpf/unblock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadEbpf();
+                showToast(`eBPF unblocked ${ip}`);
+            });
+        }
+
+        // DRL Mitigation
+        function loadDrl() {
+            fetch('/api/drl_mitigation/status')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById('drlStatus').textContent = d.enabled ? 'Active' : 'Disabled';
+                    document.getElementById('drlStatus').className = `badge ${d.enabled ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('drlToggle').classList.toggle('active', d.enabled);
+                    document.getElementById('drlModel').textContent = d.model_loaded ? 'Yes' : 'No';
+                    document.getElementById('drlModel').className = `badge ${d.model_loaded ? 'badge-normal' : 'badge-warning'}`;
+                    document.getElementById('drlConfidence').textContent = d.confidence_threshold || '--';
+                    document.getElementById('drlDecisions').textContent = (d.stats && d.stats.decisions_made) || 0;
+                    document.getElementById('drlBlocks').textContent = (d.stats && d.stats.blocks_applied) || 0;
+
+                    const bl = document.getElementById('drlBlockedList');
+                    if (!d.blocked_ips || d.blocked_ips.length === 0) {
+                        bl.innerHTML = '<div class="empty-state" style="padding: 16px;">No DRL blocks</div>';
+                    } else {
+                        bl.innerHTML = d.blocked_ips.map(b => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address">${b.ip}</span>
+                                    <span class="ip-reason">${b.reason || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <span class="ip-timer">${b.remaining_min}m</span>
+                                    <button class="btn btn-primary btn-sm" onclick="drlUnblockIp('${b.ip}')">Unblock</button>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                })
+                .catch(err => console.error('DRL load error:', err));
+        }
+
+        function toggleDrl() {
+            const el = document.getElementById('drlToggle');
+            el.classList.toggle('active');
+            fetch('/api/drl_mitigation/toggle', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({enabled: el.classList.contains('active')})
+            }).then(() => showToast(`DRL mitigation ${el.classList.contains('active') ? 'ON' : 'OFF'}`));
+        }
+
+        function drlUnblockIp(ip) {
+            fetch('/api/drl_mitigation/unblock', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ip})
+            }).then(() => {
+                loadDrl();
+                showToast(`DRL unblocked ${ip}`);
+            });
+        }
+
+        // Alerts
+        function loadAlerts() {
+            fetch('/api/alerts')
+                .then(r => r.json())
+                .then(d => {
+                    const alerts = d.alerts || [];
+                    document.getElementById('alertCount').textContent = `${alerts.length} Alerts`;
+                    document.getElementById('alertList').innerHTML = alerts.length === 0
+                        ? '<div class="empty-state" style="padding: 16px;">No alerts yet</div>'
+                        : alerts.map(a => `
+                            <div class="ip-item">
+                                <div class="ip-info">
+                                    <span class="ip-address" style="color: ${a.severity === 'critical' ? 'var(--danger)' : a.severity === 'warning' ? 'var(--warning)' : 'var(--text-secondary)'};">[${a.severity.toUpperCase()}] ${a.title}</span>
+                                    <span class="ip-reason">${a.message || ''}</span>
+                                </div>
+                                <div class="ip-actions">
+                                    <span style="font-size: 10px; color: var(--text-muted);">${new Date(a.timestamp).toLocaleTimeString()}</span>
+                                    ${!a.acknowledged ? `<button class="btn btn-ghost btn-sm" onclick="ackAlert('${a.id}')">Ack</button>` : '<span style="font-size: 10px; color: var(--success);">✓</span>'}
+                                </div>
+                            </div>
+                        `).join('');
+                })
+                .catch(err => console.error('Alerts load error:', err));
+
+            fetch('/api/alerts/stats')
+                .then(r => r.json())
+                .then(s => {
+                    document.getElementById('alertTotal').textContent = s.total_alerts || 0;
+                    document.getElementById('alertCritical').textContent = (s.alerts_by_severity && s.alerts_by_severity.critical) || 0;
+                    document.getElementById('alertWarning').textContent = (s.alerts_by_severity && s.alerts_by_severity.warning) || 0;
+                    document.getElementById('alertChannels').textContent = (s.channels || []).join(', ') || '--';
+                })
+                .catch(err => console.error('Alert stats error:', err));
+        }
+
+        function testAlert() {
+            fetch('/api/alerts/test', {method: 'POST'})
+                .then(r => r.json())
+                .then(d => {
+                    if (d.status === 'sent') showToast('Test alert sent');
+                    else showToast('Test alert failed', 'error');
+                    loadAlerts();
+                });
+        }
+
+        function clearAlerts() {
+            fetch('/api/alerts/clear', {method: 'POST'})
+                .then(() => {
+                    showToast('Alerts cleared');
+                    loadAlerts();
+                });
+        }
+
+        function ackAlert(id) {
+            fetch('/api/alerts/acknowledge', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({alert_id: id})
+            }).then(() => loadAlerts());
         }
     </script>
 </body>

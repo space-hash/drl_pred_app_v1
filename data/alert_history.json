@@ -1,0 +1,15 @@
+[
+  {
+    "id": "20260517153119_test_info",
+    "type": "test",
+    "severity": "info",
+    "title": "Test Alert",
+    "message": "This is a test alert from the DDoS Protection System",
+    "metadata": {},
+    "timestamp": "2026-05-17T15:31:19.774845",
+    "acknowledged": false,
+    "channels_sent": [
+      "dashboard"
+    ]
+  }
+]

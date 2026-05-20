@@ -1,50 +1,43 @@
-# detection_module/predict_pipeline.py
-"""
-Local prediction pipeline that discovers feature CSV files, runs them through
-the DRL model, and calls back with detection results for each flow.
-"""
 import pandas as pd
 import numpy as np
 import torch
 import ipaddress
 import joblib
 import shutil
+from pathlib import Path
 import os
 import logging
 import queue
 import threading
-import time
-from pathlib import Path
 from datetime import datetime
 from collections import OrderedDict
+import time
 from sklearn.preprocessing import StandardScaler
 from detection_module.model_update import ModelUpdater
 from typing import Optional, Tuple, Dict, Any, List, Callable
 
 logger = logging.getLogger("LocalPredictionPipeline")
 
-EXPECTED_FEATURE_COUNT = 81
+EXPECTED_FEATURE_COUNT = 81  # 84 total - 3 metadata columns (Flow ID, Timestamp, Fwd Header Length.1)
 MAX_PROCESSED_FILES_TRACKED = 5000
 
 
 class LocalPredictionPipeline:
-    """Discovers feature files, runs predictions, and reports detections."""
-
     def __init__(
         self,
-        model_path,
-        processed_dir,
-        output_dir="./predictions",
-        queue_maxsize=10,
-        force_cpu=False,
-        model_updater=None,
-        detection_callback=None,
+        model_path: str,
+        processed_dir: str,
+        output_dir: str = "./predictions",
+        queue_maxsize: int = 10,
+        force_cpu: bool = False,
+        model_updater: ModelUpdater = None,
+        detection_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ):
         self.model_updater = model_updater
         self.model_path = model_path
         self.device = self._select_device(force_cpu)
         self.model = self._load_model(model_path)
-        self.scaler = self._load_scaler(model_path)
+        self.scaler: Optional[StandardScaler] = self._load_scaler(model_path)
         self.processed_dir = Path(processed_dir)
         self.output_dir = Path(output_dir)
         self.file_queue = queue.Queue(maxsize=queue_maxsize)
@@ -56,20 +49,18 @@ class LocalPredictionPipeline:
         self._setup_directories()
         self._processed_files = OrderedDict()
         self._processing_lock = threading.Lock()
-        self._discovery_thread = None
-        self._processing_thread = None
 
-    def _select_device(self, force_cpu):
+    def _select_device(self, force_cpu: bool) -> torch.device:
         if force_cpu:
-            logger.info("Forcing CPU usage")
+            logger.info("Forcing CPU usage as requested")
             return torch.device("cpu")
         if torch.cuda.is_available():
-            logger.info("Using CUDA GPU")
+            logger.info("CUDA GPU available, using GPU acceleration")
             return torch.device("cuda")
-        logger.info("No GPU available, using CPU")
+        logger.info("No GPU available, falling back to CPU")
         return torch.device("cpu")
 
-    def _load_model(self, model_path):
+    def _load_model(self, model_path: str) -> torch.nn.Module:
         if not Path(model_path).exists():
             raise FileNotFoundError(f"Model file not found at {model_path}")
 
@@ -83,31 +74,32 @@ class LocalPredictionPipeline:
             from detection_module.detection import EnhancedPPOAgent
             model = EnhancedPPOAgent.load_model(model_path, map_location="cpu")
             if hasattr(model, "policy"):
-                logger.info("Model loaded successfully on %s", self.device)
+                logger.info("Model loaded successfully to %s", self.device)
                 return model
             raise ValueError("Loaded agent has no policy attribute")
         except FileNotFoundError:
             raise
         except Exception as e:
-            logger.error("Model loading failed: %s", e)
+            logger.error(f"Model loading failed: {e}")
             raise RuntimeError(f"Could not load model: {e}")
 
-    def _load_scaler(self, model_path):
+    def _load_scaler(self, model_path: str) -> Optional[StandardScaler]:
         scaler_path = Path(model_path).with_suffix(".scaler.pkl")
         if scaler_path.exists():
             scaler = joblib.load(str(scaler_path))
-            logger.info("Loaded scaler from %s", scaler_path)
+            logger.info(f"Loaded scaler from {scaler_path}")
             return scaler
-        raise FileNotFoundError(f"Scaler not found at {scaler_path}")
+        logger.warning(f"Scaler not found at {scaler_path}. Predictions will run without feature scaling.")
+        return None
 
     def _setup_directories(self):
         self.output_dir.mkdir(parents=True, exist_ok=True)
         quarantine_dir = self.processed_dir / "quarantine"
         quarantine_dir.mkdir(parents=True, exist_ok=True)
 
-    def _get_oldest_file(self):
+    def _get_oldest_file(self) -> Optional[Path]:
         oldest = None
-        oldest_mtime = float("inf")
+        oldest_mtime = float('inf')
         for f in self.processed_dir.glob("B_*_features.csv"):
             try:
                 mtime = f.stat().st_mtime
@@ -118,51 +110,62 @@ class LocalPredictionPipeline:
                 continue
         return oldest
 
-    def _preprocess_data(self, df):
+    def _preprocess_data(self, df: pd.DataFrame) -> Tuple[np.ndarray, pd.DataFrame]:
         output_df = df.copy()
         drop_cols = [c for c in ["Flow ID", "Timestamp", "Fwd Header Length.1"] if c in df.columns]
         df = df.drop(columns=drop_cols)
 
         for col in ["Src IP", "Dst IP"]:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: int(ipaddress.IPv4Address(str(x))))
+                def ip_to_int(x):
+                    try:
+                        addr = ipaddress.ip_address(str(x))
+                        if isinstance(addr, ipaddress.IPv4Address):
+                            return int(addr)
+                        else:
+                            return int(addr) % (2**32)
+                    except Exception:
+                        return 0
+                df[col] = df[col].apply(ip_to_int)
 
         df = df.replace([np.inf, -np.inf], np.nan)
         col_means = df.mean()
         df = df.fillna(col_means).fillna(0)
 
-        X_scaled = self.scaler.transform(df)
+        if self.scaler is not None:
+            X_scaled = self.scaler.transform(df)
+        else:
+            X_scaled = df.values
         return X_scaled, output_df
 
-    def _postprocess_results(self, predictions, original_df):
+    def _postprocess_results(
+        self, predictions: Dict[str, np.ndarray], original_df: pd.DataFrame
+    ) -> pd.DataFrame:
         result_df = original_df.copy()
         result_df["prediction"] = predictions["labels"]
-        result_df["confidence"] = predictions.get(
-            "ddos_probabilities",
-            predictions.get("confidences", [0.0] * len(predictions["labels"])),
-        )
+        result_df["confidence"] = predictions.get("ddos_probabilities", predictions.get("confidences", [0.0] * len(predictions["labels"])))
         return result_df
 
-    def _save_predictions(self, df, input_filename):
+    def _save_predictions(self, df: pd.DataFrame, input_filename: str):
         output_file = self.output_dir / f"pred_{input_filename}"
         df.to_csv(output_file, index=False)
-        logger.info("Predictions saved to %s", output_file)
+        logger.info(f"Predictions saved to {output_file}")
 
-    def _quarantine_file(self, file_path):
+    def _quarantine_file(self, file_path: Path):
         quarantine_dir = self.processed_dir / "quarantine"
         new_path = quarantine_dir / file_path.name
         try:
             shutil.move(str(file_path), str(new_path))
-            logger.warning("Moved %s to quarantine", file_path.name)
+            logger.warning(f"Moved {file_path.name} to quarantine")
             with self._counter_lock:
                 self.failed_files += 1
         except Exception as e:
-            logger.error("Failed to quarantine %s: %s", file_path.name, e)
+            logger.error(f"Failed to quarantine {file_path.name}: {e}")
 
-    def _process_file(self, file_path):
+    def _process_file(self, file_path: Path):
         with self._processing_lock:
             if file_path.name in self._processed_files:
-                logger.debug("Skipping already processed file: %s", file_path.name)
+                logger.debug(f"Skipping already processed file: {file_path.name}")
                 return
             self._processed_files[file_path.name] = True
             if len(self._processed_files) > MAX_PROCESSED_FILES_TRACKED:
@@ -170,13 +173,13 @@ class LocalPredictionPipeline:
                     self._processed_files.popitem(last=False)
 
         try:
-            logger.info("Processing file: %s", file_path.name)
+            logger.info(f"Processing file: {file_path.name}")
             if not file_path.exists():
-                logger.error("File %s does not exist", file_path.name)
+                logger.error(f"File {file_path.name} does not exist")
                 return
 
             if file_path.stat().st_size == 0:
-                logger.warning("Skipping empty file: %s", file_path.name)
+                logger.warning(f"Skipping empty file: {file_path.name}")
                 os.remove(file_path)
                 return
 
@@ -186,12 +189,29 @@ class LocalPredictionPipeline:
 
             feature_cols = [c for c in df.columns if c not in ["Flow ID", "Timestamp", "Fwd Header Length.1"]]
             if len(feature_cols) != EXPECTED_FEATURE_COUNT:
-                raise ValueError(f"Expected {EXPECTED_FEATURE_COUNT} features, got {len(feature_cols)}")
+                raise ValueError(
+                    f"Expected {EXPECTED_FEATURE_COUNT} features, got {len(feature_cols)}"
+                )
 
             input_tensor, original_df = self._preprocess_data(df)
 
-            with torch.no_grad():
-                predictions = self.model.predict_batch(input_tensor)
+            try:
+                with torch.no_grad():
+                    predictions = self.model.predict_batch(input_tensor)
+            except RuntimeError as e:
+                if "CUDA" in str(e):
+                    logger.warning("CUDA error during prediction, retrying on CPU...")
+                    original_device = self.device
+                    self.model = self.model.to("cpu")
+                    self.device = torch.device("cpu")
+                    try:
+                        with torch.no_grad():
+                            predictions = self.model.predict_batch(torch.tensor(input_tensor).to("cpu"))
+                    finally:
+                        self.model = self.model.to(original_device)
+                        self.device = original_device
+                else:
+                    raise
 
             result_df = self._postprocess_results(predictions, original_df)
             self._save_predictions(result_df, file_path.name)
@@ -199,22 +219,19 @@ class LocalPredictionPipeline:
             if self.detection_callback:
                 records = result_df.to_dict(orient="records")
                 for record in records:
-                    try:
-                        self.detection_callback(record)
-                    except Exception as e:
-                        logger.error("Detection callback error: %s", e)
+                    self.detection_callback(record)
 
             try:
                 os.remove(file_path)
-                logger.info("Deleted %s", file_path)
+                logger.info(f"Successfully deleted {file_path}")
                 with self._counter_lock:
                     self.processed_files += 1
             except Exception as e:
-                logger.error("Error deleting %s: %s", file_path.name, e)
+                logger.error(f"Error deleting {file_path.name}: {e}")
                 self._quarantine_file(file_path)
 
         except Exception as e:
-            logger.error("Error processing %s: %s", file_path.name, e)
+            logger.error(f"Error processing {file_path.name}: {e}")
             self._quarantine_file(file_path)
 
     def _file_discovery_worker(self):
@@ -227,10 +244,10 @@ class LocalPredictionPipeline:
                         with self._processing_lock:
                             if file_path.name not in self._processed_files:
                                 self.file_queue.put(file_path)
-                                logger.debug("Queued file: %s", file_path.name)
+                                logger.debug(f"Queued file: {file_path.name}")
                 time.sleep(1)
             except Exception as e:
-                logger.error("File discovery error: %s", e)
+                logger.error(f"File discovery error: {e}")
                 time.sleep(5)
 
     def _processing_worker(self):
@@ -243,29 +260,39 @@ class LocalPredictionPipeline:
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error("Processing error: %s", e)
+                logger.error(f"Processing error: {e}")
                 time.sleep(1)
 
     def start(self):
-        if self._discovery_thread and self._discovery_thread.is_alive():
+        if hasattr(self, "_discovery_thread") and self._discovery_thread.is_alive():
             logger.warning("Pipeline is already running")
             return
         self._stop_event.clear()
-        self._discovery_thread = threading.Thread(target=self._file_discovery_worker, name="FileDiscoveryThread", daemon=True)
-        self._processing_thread = threading.Thread(target=self._processing_worker, name="ProcessingWorkerThread", daemon=True)
+        self._discovery_thread = threading.Thread(
+            target=self._file_discovery_worker,
+            name="FileDiscoveryThread",
+            daemon=True,
+        )
+        self._processing_thread = threading.Thread(
+            target=self._processing_worker,
+            name="ProcessingWorkerThread",
+            daemon=True,
+        )
         self._discovery_thread.start()
         self._processing_thread.start()
         logger.info("Pipeline started successfully")
 
     def stop(self):
         self._stop_event.set()
-        if self._discovery_thread and self._discovery_thread.is_alive():
+        if hasattr(self, "_discovery_thread"):
             self._discovery_thread.join(timeout=5)
-        if self._processing_thread and self._processing_thread.is_alive():
+        if hasattr(self, "_processing_thread"):
             self._processing_thread.join(timeout=5)
-        logger.info("Pipeline stopped. Processed %d files, %d failed", self.processed_files, self.failed_files)
+        logger.info(
+            f"Pipeline stopped. Processed {self.processed_files} files, {self.failed_files} failed"
+        )
 
-    def get_status(self):
+    def get_status(self) -> Dict[str, Any]:
         return {
             "running": not self._stop_event.is_set(),
             "processed_files": self.processed_files,

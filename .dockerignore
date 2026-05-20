@@ -1,0 +1,13 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.env
+data/
+capapp/capture_output/
+capapp/features_output/
+capapp/logs/
+flask.log
+.git
+*.md
+portfolio.html
